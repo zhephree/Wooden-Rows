@@ -1,0 +1,10 @@
+{
+	"id": "com.zhephree.shelves",
+	"version": "1.0.0",
+	"vendor": "Zhephree",
+	"type": "web",
+	"main": "index.html",
+	"title": "Shelves",
+	"icon": "icon.png",
+	"uiRevision":2
+}

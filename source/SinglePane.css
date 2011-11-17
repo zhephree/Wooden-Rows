@@ -1,0 +1,190 @@
+/* Copyright 2009-2011 Hewlett-Packard Development Company, L.P. All rights reserved. */
+/* Your CSS here */
+
+.shelf-header {
+  -webkit-border-image: none;
+  background: url(../images/page-header.png) no-repeat left top;
+}
+
+.shelf-row {
+  border-top:none;
+  border-bottom:none;
+  border-width: 43px 27px 27px;
+  -webkit-border-image: url(../images/shelf-row.png) 43 27 27 stretch;
+}
+
+.itemList .enyo-accel-children {
+  background-image: url(../images/bg-left.png),  url(../images/bg-right.png);
+  background-position: left top, right top;
+  background-repeat: repeat-y, repeat-y;
+  background-size: auto, auto; 
+}
+
+.enyo-pane {
+  background-image: url(../images/bg-middle.png), url(../images/bg-middle.png);
+  background-repeat: no-repeat, no-repeat;
+  background-position: left top, left bottom;
+  background-size: contain, contain;  
+}
+
+.itemCells {
+  margin-top: -40px;
+  margin-bottom: -56px;
+}
+.itemTitle {
+  background: rgba(255, 255, 255, 0.7);
+  width: 100%;
+  text-align: center;
+  margin-bottom: 5px;
+  visibility: hidden;
+}
+
+.imageWrapper {
+  margin-left: 14px;
+}
+
+.dvd-img, .xbox-img, .wii-img {
+  width: 116px;
+  height: 160px;
+  padding-left: 0px;
+}
+
+.dvd, .xbox, .wii {
+  width: 162px;
+  height: 200px;
+  /*background: url(../images/dvd-overlay.png) no-repeat left top;*/
+  display:block;
+  margin-top: -167px;
+  margin-left: -2px;  
+}
+
+.bluray-img {
+  width: 120px;
+  height: 152px;
+  padding-left: 0px;
+  /*-webkit-mask-image: url(../images/bluray-mask.png);*/
+}
+
+.bluray {
+  width: 162px;
+  height: 200px;
+  /*background: url(../images/dvd-overlay.png) no-repeat left top;*/
+  display:block;
+  margin-top: -172px;
+  margin-left: -1px;  
+}
+
+.ps3-img {
+  width: 116px;
+  height: 134px;
+  padding-left: 0px;
+}
+
+.ps3 {
+  width: 162px;
+  height: 200px;
+  /*background: url(../images/dvd-overlay.png) no-repeat left top;*/
+  display:block;
+  margin-top: -167px;
+  margin-left: -16px;  
+}
+
+.ds-img, .tds-img {
+  width: 116px !important;
+  height: 103px !important;
+  padding-left: 0px;
+}
+
+.ds, .tds {
+  width: 162px;
+  height: 200px;
+  /*background: url(../images/dvd-overlay.png) no-repeat left top;*/
+  display:block;
+  margin-top: -170px;
+  margin-left: -2px;  
+}
+
+.cd-img {
+  width: 116px;
+  padding-left: 15px;
+}
+.cd {
+  width: 165px;
+  height: 200px;
+  display: block;
+  margin-top: -169px;
+  margin-left: -8px;
+}
+
+
+.book {
+  width: 157px;
+  height: 200px;
+  display: block;
+  margin-top: -171px;
+  margin-left: 10px;
+}
+
+.book-img {
+  width: 120px;
+  padding-left: 15px;
+}
+
+.default {
+	display: none;
+}
+
+.default-img {
+	border-width: 7px 29px 29px 25px;
+	-webkit-border-image: url(../images/default-overlay.png) 7 31 26 24 stretch;
+	margin-left: -20px;
+}
+
+.icon-unselected {
+	border: 2px solid transparent;
+	padding: 4px;
+	-webkit-border-radius: 5px;
+}
+
+.icon-selected {
+	border: 2px solid #5aa6ec;
+	padding: 4px;
+	-webkit-border-radius: 5px;
+}
+
+.result-item-name {
+	font-size: 21px;
+	font-weight: bold;
+}
+
+.pullout {
+	top: 0;
+	bottom: 0;
+	width: 500px;
+ 	background-color: #d8d8d8;
+}
+
+.displayItemName {
+	font-size: 28px;
+	font-family: PreludeWGL-Light;
+	padding: 4px;
+}
+
+.displayItemCreator {
+	font-size: 14px;
+	font-weight: bold;
+	padding: 4px;
+}
+
+.displayItemImage {
+	max-width: 50%;
+}
+
+.displayItemImageWrapper {
+	text-align: center;
+}
+
+.displayItemDescription {
+	padding: 7px;
+	font-size: 16px;
+}
