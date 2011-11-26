@@ -4,6 +4,12 @@
 .shelf-header {
   -webkit-border-image: none;
   background: url(../images/page-header.png) no-repeat left top;
+  text-align: center;
+}
+
+.shelf-header .enyo-header-inner {
+	padding-top: 8px;
+	padding-bottom: 8px;
 }
 
 .shelf-row {
@@ -27,6 +33,10 @@
   background-size: contain, contain;  
 }
 
+.enyo-dialog.topdown {
+	-webkit-border-image: url(../images/dialog.png) 32 24 32 24 stretch stretch;
+}
+
 .itemCells {
   margin-top: -40px;
   margin-bottom: -56px;
@@ -41,6 +51,10 @@
 
 .imageWrapper {
   margin-left: 14px;
+  -webkit-transition: all 300ms linear;
+}
+.removing {
+	-webkit-transform: scale(0.01);
 }
 
 .dvd-img, .xbox-img, .wii-img {
@@ -121,12 +135,13 @@
   width: 157px;
   height: 200px;
   display: block;
-  margin-top: -171px;
-  margin-left: 10px;
+  margin-top: -174px;
+  margin-left: 14px;
 }
 
 .book-img {
-  width: 120px;
+  width: 104px;
+  height: 160px;
   padding-left: 15px;
 }
 
@@ -139,6 +154,12 @@
 	-webkit-border-image: url(../images/default-overlay.png) 7 31 26 24 stretch;
 	margin-left: -20px;
 }
+
+.lent {
+	opacity: 0.3;
+}
+
+
 
 .icon-unselected {
 	border: 2px solid transparent;

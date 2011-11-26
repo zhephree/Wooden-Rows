@@ -4,9 +4,25 @@ enyo.kind({
 	components: [
 		{kind: "WebService", name:"awsSearch", url:"",onSuccess:"awsSearchSuccess", onFailure: "awsSearchFailure"},
 		{kind: "WebService", name:"awsItem", url:"",onSuccess:"awsItemSuccess", onFailure: "awsItemFailure"},
+		{kind: "WebService", name:"zhephreeAPI", url:"http://zhephree.com/accounts/api.php",onSuccess:"zAPISuccess", onFailure: "zAPIFailure"},
 		{name: "pickContact", kind: "com.palm.library.contactsui.peoplePicker",onContactClick:"contactClicked"},
+		{kind: "Menu", name: "sortItemsMenu", onBeforeOpen:"",components: [
+			{caption:"Added", onclick:"sortItems", by:"added"},
+			{caption:"Title", onclick:"sortItems", by:"title"},
+			{caption:"Year", onclick:"sortItems", by:"year"},
+		]},		
+		{kind: "Menu", name: "shareMenu", onBeforeOpen:"",components: [
+			{caption:"Twitter", onclick:"openShare", by:"twitter"},
+			{caption:"Facebook", onclick:"openShare", by:"facebook"},
+			{caption:"Google+", onclick:"openShare", by:"google"},
+		]},		
+
+		{kind: "Menu", name: "filterItemsMenu", onBeforeOpen:"",components: []},		
+
 		{kind: "PageHeader", className:"shelf-header", components: [
-			{content: "Page Header"}
+			{flex:1, components: [
+				{kind: "Image", src:"images/logo.png", width: "230px", height:"38px"}
+			]}
 		]},
 		{flex: 1, kind: "Pane", components: [
 			{flex: 1, kind: "VirtualList", onSetupRow:"getItems",className:"itemList", name:"itemList",autoVertical:true, horizontal:false, components: [
@@ -15,10 +31,16 @@ enyo.kind({
 		        ]}
 			]}
 		]},
-		{kind: "Toolbar", components: [
+		{kind: "Toolbar", layoutKind:"HFlexLayout",components: [
+			{name:"sortItemsButton", onclick:"sortItemsMenu",caption:"Sort: Added"},
+			{name:"filterItemsButton", onclick:"filterItemsMenu",caption:"Show: All"},
+  			{kind: "ToolInput", hint: "Search...", name:"librarySearch", width: "200px", oninput:"searchLibrary", components:[
+  				{style: "background: url(images/delete-x.png) 0 0; width: 32px; height: 32px;", onclick:"resetSearch"}
+  			]},
+			{flex:1},
 			{name:"addItemButton", onclick:"openDialog", dialog:"addItemDialog", caption: "+ Add"}
 		]},
-		{kind: "ModalDialog", name:"addItemDialog", caption: "Add Item", width: "500px",components:[
+		{kind: "ModalDialog", name:"addItemDialog", scrim:false, caption: "Add Item", width: "500px",components:[
 			{kind:"Divider", caption:"Type of Item"},
 			{kind: "HFlexBox", name:"addItemIcons", pack:"center",align:"end",components:[
 				{kind: "Image", src:"images/movie-button.png", onclick: "setSearchType", type:"DVD", className: "icon-selected"},
@@ -60,6 +82,7 @@ enyo.kind({
 	        				{kind: "Image", name:"detailItemImage", className:"displayItemImage", width: "150%"}
 	        			]},
 	        			{kind: "Divider", caption:""},
+	        			{kind:'HtmlContent', name:'detailItemBorrowed', content:'', style:'font-weight:bold;text-align:center;'},
 	        			{name: "detailItemDescription", className:"displayItemDescription"},
 	        			{kind: "RowGroup", name:"detailItemDetails", caption: "Details", components:[
 	        			]}
@@ -72,7 +95,7 @@ enyo.kind({
             			{kind: "Button", name:"detailReturnButton",caption:"Returned", onclick:"returnItem", style:"background-color:transparent; color:#fff;"},
             			{kind: "Button",caption:"Share",onclick:"shareItem", style:"background-color:transparent; color:#fff;"},
             			{flex:1},
-            			{kind: "Button",caption:"Remove",onlick:"removeItem", className:"enyo-button-negative"}
+            			{kind: "Button",caption:"Remove",onclick:"removeItem", className:"enyo-button-negative"}
             		]}
           		]}
       		]}			
@@ -84,13 +107,142 @@ enyo.kind({
 	            {kind: "Button", caption: "Cancel", onclick: "confirmDialogCancel", className: "enyo-button-negative"}
 	        ]}
 	    ]},
+		{kind: "ModalDialog", name:"shareDialog", scrim:true, caption: "Share", width: "600px", height:"560px",onOpen:"shareOpened",components:[
+			{kind:"WebView", name:"shareWebView", height:"400px"},
+			{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"shareDialog"}
+		]},
+	    {kind: "Toaster", name:"signinDialog", width:"600px",lazy:false,className: "enyo-dialog topdown", flyInFrom: "top", components: [
+	        {kind:"HtmlContent",content: "Welcome to Wooden Rows! To get things started, you'll have to sign up for a Zhephree account. A Zhephree Account is free and quick to set up. This will allow you to store your library in the cloud so you can access it anywhere in the world. It'll also allow you to easily sign in to other Zhephree apps.", style: "font-size: 14px;"},
+	        {layoutKind: "HFlexLayout", pack: "center", components: [
+	            {kind: "Button", caption: "Sign Up", name: 'signinSignUp', onclick: "showSignUpForm", action:'', className: "enyo-button-blue", style:"width: 150px"},
+	            {kind: "Button", caption: "Log In", name: 'signinLogin', onclick: "showLoginForm", className: "enyo-button-primary", style:"width: 150px"}
+	        ]},
+	        {name:"signupForm",components:[
+	        	{kind:"RowGroup", caption:"Sign Up", components:[
+	        		{kind:"Input",name:"signupUsername", components:[
+		        		{content:"Username",className:"enyo-label"}
+	        		]},
+	        		{kind:"Input",name:"signupPassword", components:[
+		        		{content:"Password",className:"enyo-label"}
+	        		]},
+	        		{kind:"Input",name:"signupEmail", components:[
+		        		{content:"Email",className:"enyo-label"}
+	        		]},
+	        	]},
+	            {kind: "ActivityButton", caption: "Sign Up", name: 'signupFormOK', onclick: "doSignUp", action:'', className: "enyo-button-affirmative"},	        	
+	        ]},
+	        {name:"loginForm",components:[
+	        	{kind:"RowGroup", caption:"Log In", components:[
+	        		{kind:"Input",name:"loginUsername", components:[
+		        		{content:"Username",className:"enyo-label"}
+	        		]},
+	        		{kind:"Input",name:"loginPassword", components:[
+		        		{content:"Password",className:"enyo-label"}
+	        		]},
+	        	]},
+	            {kind: "ActivityButton", caption: "Log In", name: 'loginFormOK', onclick: "doLogin", action:'', className: "enyo-button-affirmative"},	        	
+	        ]}
+	    ]},
 		
 	],
+	doSignUp: function(inSender, inEvent){
+		inSender.setActive(true);
+		this.apiInSender=inSender;
+		
+		var data={method:'user.create',
+	         		username:this.$.signupUsername.getValue(),
+	         		password:calcMD5(this.$.signupPassword.getValue()),
+	         		email:this.$.signupEmail.getValue()};
+		
+		this.log(data);
+		
+		this.$.zhephreeAPI.setMethod("POST");
+		this.$.zhephreeAPI.call(data);
+		
+	},
+	doLogin: function(inSender,inEvent){
+		inSender.setActive(true);
+		this.apiInSender=inSender;
+		
+		this.$.zhephreeAPI.setMethod("GET");
+		var data={
+			method:"user.getToken",
+     		username:this.$.loginUsername.getValue(),
+     		password:calcMD5(this.$.loginPassword.getValue()),
+     		app: "woodenrows"			
+		};
+		this.$.zhephreeAPI.call(data);
+		
+	},
+	zAPISuccess: function(inSender,inResponse,inRequest){
+		//inResponse=enyo.json.parse(inResponse);
+		switch(inResponse.code){
+			case 500:
+			case 404:
+			case 403:
+				enyo.windows.addBannerMessage(inResponse.error,"{}");	
+				this.apiInSender.setActive(false);
+				break;
+			case 200:
+				switch(inResponse.method){
+					case "user.create":
+						this.log("create ok");
+						this.$.zhephreeAPI.setMethod("GET");
+						var data={
+							method:"user.getToken",
+			         		username:this.$.signupUsername.getValue(),
+	    		     		password:calcMD5(this.$.signupPassword.getValue()),
+	    		     		app: "woodenrows"			
+						};
+						this.$.zhephreeAPI.call(data);
+						break;
+					case "user.getToken":
+						var token=inResponse.result.token;
+						var user=inResponse.result.user;
+						this.log(token);
+						this.log(user);
+						//enyo.setCookie("token",token);
+						//enyo.setCookie("user",user);
+						this.apiInSender.setActive(false);
+						this.$.signinDialog.close();
+						
+						///LOAD LIBRARY FROM SERVER
+						break;
+				}
+				break;
+		}
+	},
+	zAPIFailure: function(inSender,inResponse,inRequest){
+		this.log("api failure");
+	},
+	showSignUpForm: function(inSender, inEvent){
+		this.$.signupForm.show();
+		this.$.loginForm.hide();
+	},
+	showLoginForm: function(inSender, inEvent){
+		this.$.loginForm.show();
+		this.$.signupForm.hide();
+	},
 	createTableDataHandler: function(transaction, results){
 		this.log("db and table created");
 	},
+	inArray: function(array,item){
+		var inarray=false;
+		for(var i=0,l=array.length;i<l;i++){
+			if(array[i]==item){
+				inarray=true;
+				break;
+			}
+		}
+		
+		return inarray;
+	},
 	queryDataHandler: function(transaction, results){
 		this.data=[];
+		if(!this.isFiltering){
+			this.types=[];
+			this.platforms=[];
+		}
 		
 		try {
 			if(results.rows.length==0){
@@ -99,9 +251,24 @@ enyo.kind({
 				for (var i = 0; i < results.rows.length; i++) {
 					var row = results.rows.item(i);
 					row.extra=row.extra.replace(/\&nbsp\;/g,'"');
+					
+					if(!this.inArray(this.types,row.type) && !this.isFiltering){
+						this.types.push(row.type);
+					}
+					
+					if(this.addedItem){
+						if(row.asin==this.addedItemASIN){
+							row.new=true;
+							this.addedItem=false;
+							this.addedItemASIN='';
+						}
+					}
+					
 					this.data.push(row);
+
 				}
 				
+				this.log(this.types);
 				
 				if(this.setCurrent){
 					this.currentItem=this.data[this.currentIndex];
@@ -124,6 +291,7 @@ enyo.kind({
 	createRecordDataHandler: function(transaction,results){
 		try{
 			console.log("create record handler");
+			this.addedItem=true;
 			this.loadLibrary();
 			
 			console.log(enyo.json.stringify(results));
@@ -180,6 +348,7 @@ enyo.kind({
 	rendered: function(){
 	    this.inherited(arguments);
     	this.searchType="DVD";
+    	this.filterBy='';
 	    this.buildItemCells();
 	    this.region=enyo.g11n.currentLocale().region.toUpperCase();
 	    if(LOCALES[this.region]){
@@ -191,15 +360,50 @@ enyo.kind({
 	    this.log(this.apiUrl);
 	    
 	    
+	    var token=enyo.getCookie("token");
+	    if(token!=undefined && token!=""){
+	    	this.userToken=token;
+	    }else{
+	    	this.$.signupForm.hide();
+	    	this.$.loginForm.hide();
+	    	this.openDialog({dialog:"signinDialog"});
+	    }
 	},
 	resizeHandler: function() {
 		this.buildItemCells();
 		this.inherited(arguments);
 	},  
-	loadLibrary: function(setCurrent){
+	loadLibrary: function(setCurrent,isFiltering){
 		this.log("loading library");
 		//query table...
-		var mytext = 'select * from library';
+		var orderby="";
+		switch(this.sortBy){
+			case "title":
+				orderby=" ORDER BY title ASC";
+				break;
+			case "year":
+				orderby=" ORDER BY year ASC";
+				break;
+		}
+
+		this.isFiltering=isFiltering;
+		
+		var where="";
+		if(this.filterBy!="" && this.filterBy!=undefined){
+			where=' WHERE type="'+this.filterBy+'" ';
+			
+			if(this.searchQuery!=undefined && this.searchQuery!=""){
+				where+=' AND (title LIKE "%'+this.searchQuery+'%" OR artist LIKE "%'+this.searchQuery+'%" OR author LIKE "%'+this.searchQuery+'%") ';
+			}
+		}else{
+			if(this.searchQuery!=undefined && this.searchQuery!=""){
+				where+=' WHERE (title LIKE "%'+this.searchQuery+'%" OR artist LIKE "%'+this.searchQuery+'%" OR author LIKE "%'+this.searchQuery+'%") ';
+			}		
+		}
+		
+				
+		var mytext = 'select * from library'+where+orderby;
+		this.log(mytext);
 		this.setCurrent=setCurrent;
 	    this.db.transaction( 
 	        enyo.bind(this,(function (transaction) { 
@@ -242,8 +446,8 @@ enyo.kind({
 			var minimum=this.cellCount*this.rowCount;
 			var needed=Math.abs(this.data.length-minimum);
 			
-			this.log("min=",minimum);
-			this.log("needed=",needed);
+			//this.log("min=",minimum);
+			//this.log("needed=",needed);
 			for(var x=0;x<needed;x++){
 				this.data.push({placeholder:true});
 			}
@@ -257,7 +461,7 @@ enyo.kind({
 			c.createComponent({kind: "HtmlContent", className:"itemTitle",name: "itemTitle"});
 			c.createComponent({flex:1});
 			var w=c.createComponent({kind:"HtmlContent", name:"imageWrapper", className: "imageWrapper"});
-      w.createComponent({kind: "Image", style: ""});
+     		w.createComponent({kind: "Image", style: ""});
 			w.createComponent({kind: "Image", name:"itemOverlay"});
 			this.cells.push(c);
 		}
@@ -284,6 +488,27 @@ enyo.kind({
 					  var w=c.$.imageWrapper;
 						w.$.image.removeClass("dvd-img");
 						w.$.itemOverlay.removeClass("dvd");
+
+						
+						if(this.data[idx].lent=="1"){
+							w.addClass("lent");
+						}else{
+							w.removeClass("lent");
+						}
+
+//						w.removeClass("animated");
+//						w.removeClass("bounceInDown");						
+
+						
+						if(this.data[idx].new==true){
+							w.addClass("animated");
+							w.addClass("bounceInDown");
+							//this.log("new: "+this.data[idx].title);
+							//this.data[idx].new=false;
+						}else{
+							w.removeClass("bounceInDown");	
+												
+						}
 						
 						c.addStyles("visibility: visible; height: auto;");
 						
@@ -310,6 +535,9 @@ enyo.kind({
   	var item=this.data[idx];
   	this.currentItem=item;
   	this.currentIndex=idx;
+  	this.currentElement=inSender;
+  	this.log(inSender);
+  	this.log(this.currentElement);
   	
   	this.$.detailItemName.setContent(item.title);
   	var creator=item.author || item.artist || item.director || item.publisher || "Unknown";
@@ -321,9 +549,19 @@ enyo.kind({
 	if(item.lent=="1"){
 		this.$.detailLendButton.hide();
 		this.$.detailReturnButton.show();
+		var one_day=1000*60*60*24;
+		var lent=item.lentOn;
+		var d=new Date();
+		var now=d.getTime();
+		var diff=now-lent;
+		var daysago=Math.ceil(diff/one_day);
+		var s=(daysago==1)? '':"s";
+		
+		this.$.detailItemBorrowed.setContent(item.lentTo+' borrowed this '+daysago+' day'+s+' ago.');
 	}else{
 		this.$.detailLendButton.show();
 		this.$.detailReturnButton.hide();	
+		this.$.detailItemBorrowed.setContent('');
 	}
 
 	//make a call for more data
@@ -495,7 +733,8 @@ enyo.kind({
   		"Nintendo 3DS":"tds",
   		"PlayStation 3":"ps3",
   		"PlayStation2":"dvd",
-  		"PlayStation":"cd"
+  		"PlayStation":"cd",
+  		"Sega Dreamcast":"cd"
   	};
 
 	if(map[binding]){
@@ -542,7 +781,41 @@ enyo.kind({
 	  enyo.windows.addBannerMessage("Woohoo! Got your stuff back!","{}");
 
   },
+  removeItem: function(inSender, inEvent){
+  	this.log("showing dialog...");
+        this.showConfirmDialog("Are you sure you want to remove <i>"+this.currentItem.title+"</i> from your library? This cannot be undone.","doRemoveItem");  	
+  },
+  doRemoveItem: function(){
+    this.$.confirmDialog.close();
+    this.$.itemDetail.close();
 
+	var string = 'DELETE FROM library WHERE id="'+this.currentItem.id+'"';
+	this.log(string);
+	this.log("update table");
+	this.db.transaction( 
+		enyo.bind(this,(function (transaction) { 
+			//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
+		    transaction.executeSql(string, [], enyo.bind(this,this.itemRemovedOK), enyo.bind(this,this.errorHandler)); 
+		}))
+	);
+  
+  },
+  itemRemovedOK: function(){
+    var cell=this.currentElement;
+    this.removeDone=enyo.bind(this,this.removeAniDone);
+    if(cell){
+    	this.iw=cell.$.imageWrapper;
+    	this.iw.hasNode().addEventListener( 'webkitTransitionEnd', this.removeDone, false );
+    	this.iw.addClass("removing");
+    }
+  },
+  removeAniDone: function(){
+	this.loadLibrary(true);
+      this.log(this.currentItem);
+	  enyo.windows.addBannerMessage("Ohh, that was a nice i-- DELETED!!","{}");
+    this.iw.removeEventListener('webkitTransitionEnd',this.removeDone,false);
+  },
+ 
   lendItem: function(inSender,inEvent){
 	  this.$.pickContact.pickPerson();
   },
@@ -620,6 +893,8 @@ enyo.kind({
   	url+="&SearchIndex="+this.searchType;
   	var kw=this.$.addItemInput.getValue().replace(/\-/g,"");
   	url+="&Keywords="+encodeURIComponent(kw);
+  	
+  	url=url.replace(/'/g," ");
   	this.log(url);
   	
   	var signedUrl=invokeRequest(url);
@@ -630,6 +905,11 @@ enyo.kind({
   	
   	this.$.awsSearch.setUrl(signedUrl);
   	this.$.awsSearch.call();
+  },
+  resetSearch: function(inSender, inEvent){
+  	this.$.librarySearch.setValue('');
+  	this.searchQuery='';
+  	this.loadLibrary();
   },
   awsSearchSuccess: function(inSender,inResponse,inRequest){
   	this.log(inResponse);
@@ -843,6 +1123,14 @@ enyo.kind({
   	var year=row.year;
   	var type=this.searchType;
   	
+  	this.addedItemASIN=asin;
+  	
+  	this.closeDialog({dialog:"resultsDialog"});
+  	enyo.keyboard.setManualMode();
+  	enyo.keyboard.hide();
+  	//this.closeDialog({dialog:"addItemDialog"});
+	this.doingSearch=false;
+	
   	
   	var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type) VALUES ("'+artist+'", "'+asin+'", "'+author+'", "'+binding+'", "'+director+'", "'+image+'", "'+platform+'", "'+price+'", "'+publisher+'", "'+title+'", "'+upc+'", "'+year+'","","'+type+'")';
   	
@@ -853,6 +1141,101 @@ enyo.kind({
         	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler)); 
     	})) 
 	);
+  },
+  shareItem: function(inSender,inEvent){
+  	this.$.shareMenu.openAtControl(inSender,{top: -45});
+  },
+  openShare: function(inSender, inEvent){
+  	this.shareVia=inSender.by;
+  	this.openDialog({dialog:"shareDialog"});
+  },
+  shareOpened: function(inSender,inEvent){
+  	var text=this.currentItem.title;
+  	var url=encodeURIComponent("http://zhephree.com/woodenrows/item.php?uid=12345&asin="+this.currentItem.asin);
+  	switch(this.shareVia){
+  		case "twitter":
+  			this.$.shareWebView.setUrl("https://twitter.com/intent/tweet?related=zhephree&text="+text+"&url="+url+"&via=WoodenRows");
+  			break;
+  		case "facebook":
+  			this.$.shareWebView.setUrl("http://m.facebook.com/sharer.php?u="+url+"&t="+text);
+  			break;
+  		case "google":
+  			text+=" on Wooden Rows";
+  			this.$.shareWebView.setUrl("https://m.google.com/app/plus/x/1jvfeqxlhztom/?content="+text+" "+url+"&v=compose");
+  			break;
+  	}
+  },
+  sortItemsMenu: function(inSender,inEvent){
+  	this.$.sortItemsMenu.openAtControl(inSender,{top: -45});
+  },
+  sortItems: function(inSender,inEvent){
+  	this.sortBy=inSender.by;
+  	var cap=this.sortBy.charAt(0).toUpperCase() + this.sortBy.slice(1)
+  	this.$.sortItemsButton.setCaption('Sort: '+cap);
+  	this.loadLibrary();
+  },
+  filterItemsMenu: function(inSender, inEvent){
+  	this.$.filterItemsMenu.destroyControls();
+  	var c=[];
+  	c.push({caption:"All",onclick:"filterItems", by:''});
+  	
+  	for(var i=0,l=this.types.length;i<l;i++){
+  		var t='';
+  		switch(this.types[i]){
+  			case "VideoGames":
+  				t="Video Games";
+  				break;
+  			case "DVD":
+  				t="Movies";
+  				break;
+  			default:
+  				t=this.types[i];
+  				break;
+  		}
+  		c.push({caption:t,onclick:"filterItems", by:this.types[i]});
+  	}
+  	
+  	this.$.filterItemsMenu.filterItems=enyo.bind(this,this.filterItems);
+  	this.$.filterItemsMenu.createComponents(c);
+  	this.$.filterItemsMenu.render();
+  	this.$.filterItemsMenu.openAtControl(inSender,{top:-45});
+  },
+  filterItems: function(inSender,inEvent){
+  	this.log(inSender.by);
+	switch(inSender.by){
+		case "Video Games":
+			t="VideoGames";
+			break;
+		case "Movies":
+			t="DVD";
+			break;
+		default:
+			t=inSender.by;
+			break;
+	}
+	
+
+	this.filterBy=t;
+  	var cap=inSender.by.charAt(0).toUpperCase() + inSender.by.slice(1)
+  	if(cap==""){
+  		cap="All";
+  		this.isFiltering=false;
+  	}else{
+  		this.isFiltering=true;
+  		if(cap=="VideoGames"){
+  			cap="Video Games";
+  		}else if(cap=="DVD"){
+  			cap="Movies";
+  		}
+  	}
+  	this.$.filterItemsButton.setCaption('Show: '+cap);
+  	this.loadLibrary(false,this.isFiltering);
+  },
+  searchLibrary: function(inSender,inEvent){
+  	var val=inSender.value;
+  	
+  	this.searchQuery=val;
+  	this.loadLibrary(false,this.isFiltering,true);
   },
   awsSearchFailure: function(inSender,inResponse,inRequest){
   	this.log(inResponse);

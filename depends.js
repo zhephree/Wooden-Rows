@@ -2,7 +2,9 @@
 enyo.depends(
   "source/sha2.js",
   "source/aws.js",
+  "source/md5.js",
   "$enyo-lib/contactsui/",
 	"source/SinglePane.js",
-	"source/SinglePane.css"
+	"source/SinglePane.css",
+	"source/animate.css"
 );
