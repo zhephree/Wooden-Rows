@@ -73,7 +73,7 @@ function invokeRequest(unsignedUrl) {
 
   // show it
   //document.getElementById("NameValuePairs").value = pairs.join("\n");
-  console.log(pairs.join("\n"));
+ // console.log(pairs.join("\n"));
         
   // encode the name and value in each pair
   pairs = encodeNameValuePairs(pairs);
@@ -81,7 +81,7 @@ function invokeRequest(unsignedUrl) {
   // sort them and put them back together to get the canonical query string
   pairs.sort();
   //document.getElementById("OrderedPairs").value = pairs.join("\n");
-  console.log(pairs.join("\n"));
+ // console.log(pairs.join("\n"));
 
   var canonicalQuery = pairs.join("&");
   var stringToSign = "GET\n" + host + "\n/onca/xml\n" + canonicalQuery;
@@ -96,7 +96,7 @@ function invokeRequest(unsignedUrl) {
   // update the UI
   //var stringToSignArea = document.getElementById("StringToSign");
   //stringToSignArea.value = stringToSign;
-  console.log(stringToSign);
+  //console.log(stringToSign);
         
   //var signedURLArea = document.getElementById("SignedURL");
   //signedURLArea.value = signedUrl;

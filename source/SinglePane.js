@@ -4,7 +4,8 @@ enyo.kind({
 	components: [
 		{kind: "WebService", name:"awsSearch", url:"",onSuccess:"awsSearchSuccess", onFailure: "awsSearchFailure"},
 		{kind: "WebService", name:"awsItem", url:"",onSuccess:"awsItemSuccess", onFailure: "awsItemFailure"},
-		{kind: "WebService", name:"zhephreeAPI", url:"http://zhephree.com/accounts/api.php",onSuccess:"zAPISuccess", onFailure: "zAPIFailure"},
+		{kind: "WebService", name:"zhephreeAPI", url:"http://accounts.zhephree.com/api.php",onSuccess:"zAPISuccess", onFailure: "zAPIFailure"},
+		{kind: "WebService", name:"woodenrowsAPI", url:"http://woodenro.ws/api.php",onSuccess:"wAPISuccess", onFailure: "wAPIFailure"},
 		{name: "pickContact", kind: "com.palm.library.contactsui.peoplePicker",onContactClick:"contactClicked"},
 		{kind: "Menu", name: "sortItemsMenu", onBeforeOpen:"",components: [
 			{caption:"Added", onclick:"sortItems", by:"added"},
@@ -38,7 +39,8 @@ enyo.kind({
   				{style: "background: url(images/delete-x.png) 0 0; width: 32px; height: 32px;", onclick:"resetSearch"}
   			]},
 			{flex:1},
-			{name:"addItemButton", onclick:"openDialog", dialog:"addItemDialog", caption: "+ Add"}
+			{name:"addItemButton", onclick:"openDialog", dialog:"addItemDialog", caption: "+ Add"},
+			{kind:"Spinner", name:"syncSpinner"}
 		]},
 		{kind: "ModalDialog", name:"addItemDialog", scrim:false, caption: "Add Item", width: "500px",components:[
 			{kind:"Divider", caption:"Type of Item"},
@@ -52,7 +54,7 @@ enyo.kind({
 			{kind:"Divider",caption:"Search"},
 			{content: "Enter in some keywords from the title of the item, or, type in its UPC or ISBN code.", style:"font-size: 16px;text-align:center;"},
 			{kind: "Input", name:"addItemInput", hint:"Keywords, UPC code, or ISBN...", alwaysLooksFocused:true, components:[
-				{kind: "Button", name:"addItemSearch", onclick:"searchItems", caption:"Search"}
+				{kind: "ActivityButton", name:"addItemSearch", onclick:"searchItems", caption:"Search"}
 			]},
 			{kind:"InputBox", components:[
 				{kind:"Image", src:"images/barcodes.png", style:"display:block;margin:10px auto;"}
@@ -107,11 +109,17 @@ enyo.kind({
 	            {kind: "Button", caption: "Cancel", onclick: "confirmDialogCancel", className: "enyo-button-negative"}
 	        ]}
 	    ]},
+	    {kind: "Toaster", name:"errorDialog", lazy:false,className: "enyo-dialog", flyInFrom: "bottom", components: [
+	        {kind:"HtmlContent",content: "", name:"errorDialogText"},
+	        {layoutKind: "HFlexLayout", pack: "center", components: [
+	            {kind: "Button", caption: "OK", name: 'errorDialogOK', onclick: "closeDialog", dialog:'errorDialog', className: "enyo-button-primary"},
+	        ]}
+	    ]},
 		{kind: "ModalDialog", name:"shareDialog", scrim:true, caption: "Share", width: "600px", height:"560px",onOpen:"shareOpened",components:[
 			{kind:"WebView", name:"shareWebView", height:"400px"},
 			{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"shareDialog"}
 		]},
-	    {kind: "Toaster", name:"signinDialog", width:"600px",lazy:false,className: "enyo-dialog topdown", flyInFrom: "top", components: [
+	    {kind: "Toaster", name:"signinDialog", width:"600px",lazy:false,className: "enyo-dialog topdown", flyInFrom: "top", autoClose:false, modal:true, dismissWithClick:false,dismissWithEscape:false,onOpen:'fixPrivacyLinks',components: [
 	        {kind:"HtmlContent",content: "Welcome to Wooden Rows! To get things started, you'll have to sign up for a Zhephree account. A Zhephree Account is free and quick to set up. This will allow you to store your library in the cloud so you can access it anywhere in the world. It'll also allow you to easily sign in to other Zhephree apps.", style: "font-size: 14px;"},
 	        {layoutKind: "HFlexLayout", pack: "center", components: [
 	            {kind: "Button", caption: "Sign Up", name: 'signinSignUp', onclick: "showSignUpForm", action:'', className: "enyo-button-blue", style:"width: 150px"},
@@ -129,7 +137,7 @@ enyo.kind({
 		        		{content:"Email",className:"enyo-label"}
 	        		]},
 	        	]},
-	            {kind: "ActivityButton", caption: "Sign Up", name: 'signupFormOK', onclick: "doSignUp", action:'', className: "enyo-button-affirmative"},	        	
+	            {kind: "ActivityButton", caption: "Sign Up", name: 'signupFormOK', onclick: "doSignUp", action:'', className: "enyo-button-affirmative"},	        				{kind: 'HtmlContent', content:'<a href="http://accounts.zhephree.com/privacy.php" id="privacylink">Privacy Policy</a> and <a href="http://accounts.zhephree.com/terms.php" id="termslink">Terms of Use</a>', style: 'font-size: 14px'}
 	        ]},
 	        {name:"loginForm",components:[
 	        	{kind:"RowGroup", caption:"Log In", components:[
@@ -145,6 +153,15 @@ enyo.kind({
 	    ]},
 		
 	],
+	fixPrivacyLinks: function() {
+		var goToLinkBound=enyo.bind(this,this.goToLink);
+		document.getElementById("privacylink").addEventListener('click',goToLinkBound,false);
+		document.getElementById("termslink").addEventListener('click',goToLinkBound,false);
+	},
+	goToLink: function(e){
+		e.preventDefault();
+		window.open(e.target.href);
+	},
 	doSignUp: function(inSender, inEvent){
 		inSender.setActive(true);
 		this.apiInSender=inSender;
@@ -180,7 +197,9 @@ enyo.kind({
 			case 500:
 			case 404:
 			case 403:
-				enyo.windows.addBannerMessage(inResponse.error,"{}");	
+				//enyo.windows.addBannerMessage(inResponse.error,"{}");	
+				this.showErrorDialog('Error '+inResponse.code+': '+inResponse.error);
+
 				this.apiInSender.setActive(false);
 				break;
 			case 200:
@@ -201,12 +220,22 @@ enyo.kind({
 						var user=inResponse.result.user;
 						this.log(token);
 						this.log(user);
-						//enyo.setCookie("token",token);
-						//enyo.setCookie("user",user);
+						enyo.setCookie("token",token);
+						enyo.setCookie("user",user.id);
+						this.userToken=token;
+						this.userId=user.id;
 						this.apiInSender.setActive(false);
 						this.$.signinDialog.close();
 						
-						///LOAD LIBRARY FROM SERVER
+						///LOAD LIBRARY FROM SERVER. If no items, do a bulk upload
+						this.$.syncSpinner.show();
+						this.$.woodenrowsAPI.setMethod("GET");
+						var data={
+							method:"user.getLibrary",
+							token: token
+						};
+						this.$.woodenrowsAPI.call(data);
+						
 						break;
 				}
 				break;
@@ -214,6 +243,86 @@ enyo.kind({
 	},
 	zAPIFailure: function(inSender,inResponse,inRequest){
 		this.log("api failure");
+		this.showErrorDialog('Unknown zAPI Failure. Server may be down.');
+
+	},
+	wAPISuccess: function(inSender,inResponse,inRequest){
+		//inResponse=enyo.json.parse(inResponse);
+		this.log("success");
+		this.log(inResponse);
+		switch(inResponse.code){
+			case 500:
+			case 404:
+			case 403:
+				//enyo.windows.addBannerMessage(inResponse.error,"{}");	
+				this.showErrorDialog('Error '+inResponse.code+': '+inResponse.error);
+				this.apiInSender.setActive(false);
+				break;
+			case 200:
+				switch(inResponse.method){
+					case "user.getLibrary":
+						this.log("got ok");
+						var user=inResponse.result.user;
+						enyo.setCookie("user",inResponse.result.user.id);
+						
+						this.serverLibrary=inResponse.result.library;
+						this.serverLoaded=true;
+						
+						if(this.localLoaded){
+							if(this.serverLibrary.count==0){
+								//no items on the server.
+								if(this.data.length>0){ //but we have items stored locally
+									var items=enyo.json.stringify(this.data);
+									this.log("gonna bulk upload");
+									this.log(items);
+									var token=this.userToken;
+									var data={
+										method: "library.bulkAddItems",
+										token: token,
+										items: items
+									};
+									
+									this.$.syncSpinner.show();
+									this.$.woodenrowsAPI.setMethod("POST");
+									this.$.woodenrowsAPI.call(data);
+								}
+							}						
+						}
+
+						this.$.syncSpinner.hide();		
+						//this.loadLibrary();				
+						break;
+					case "library.bulkAddItems":
+						this.log("bulk add ok");
+						this.log(inResponse.result.message);
+						this.log(inResponse.result.sql);
+						this.$.syncSpinner.hide();
+						
+						break;
+					case "library.addItem":
+						this.log(inResponse.result.message);
+						this.log(inResponse.result.itemId);
+						this.$.syncSpinner.hide();
+					case "library.deleteItem":
+						this.log(inResponse.result.message);
+						//this.log(inResponse.result.itemId);
+						this.$.syncSpinner.hide();
+					case "library.lendItem":
+						this.log(inResponse.result.message);
+						//this.log(inResponse.result.itemId);
+						this.$.syncSpinner.hide();
+					case "library.returnItem":
+						this.log(inResponse.result.message);
+						//this.log(inResponse.result.itemId);
+						this.$.syncSpinner.hide();
+				}
+				break;
+		}
+	},
+	wAPIFailure: function(inSender,inResponse,inRequest){
+		this.log("api failure");
+		this.showErrorDialog('Unknown wAPI Failure. Server may be down.');
+		
 	},
 	showSignUpForm: function(inSender, inEvent){
 		this.$.signupForm.show();
@@ -247,6 +356,10 @@ enyo.kind({
 		try {
 			if(results.rows.length==0){
 				this.log("no items in library");
+				this.buildItemCells();
+				
+				this.$.itemList.punt();
+				
 			}else{
 				for (var i = 0; i < results.rows.length; i++) {
 					var row = results.rows.item(i);
@@ -277,6 +390,32 @@ enyo.kind({
 				}
 				
 				this.log(this.data);
+				this.localLoaded=true;
+				
+				//see if we should bulk upload
+				if(this.serverLoaded){
+					if(this.serverLibrary.count==0){
+						//no items on the server.
+						if(this.data.length>0){ //but we have items stored locally
+							var items=enyo.json.stringify(this.data);
+							this.log("gonna bulk upload");
+							this.log(items);
+							var token=this.userToken;
+							var data={
+								method: "library.bulkAddItems",
+								token: token,
+								items: items
+							};
+							
+							this.$.syncSpinner.show();
+							this.$.woodenrowsAPI.setMethod("POST");
+							this.$.woodenrowsAPI.call(data);
+						}
+					}
+				}else{
+					
+				}
+				
 				
 				this.buildItemCells();
 				
@@ -308,6 +447,8 @@ enyo.kind({
 	},
 	create: function(){
 		//first thing's first! do we have any data added?
+		this.serverLoaded=false;
+		this.localLoaded=false;
 		try {
 			//console.log("creating db");
 			this.db = openDatabase('library', '', 'library stuff', 65536);
@@ -322,7 +463,7 @@ enyo.kind({
 			//console.log("creating table");
 			this.nullHandleCount = 0;
 			
-			var string = 'CREATE TABLE IF NOT EXISTS library (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asin TEXT NOT NULL, author TEXT, binding TEXT, director TEXT, image TEXT, platform TEXT, price TEXT, publisher TEXT, title TEXT, upc TEXT, year INTEGER, type TEXT, extra TEXT)';
+			var string = 'CREATE TABLE IF NOT EXISTS library (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asin TEXT NOT NULL, author TEXT, binding TEXT, director TEXT, image TEXT, platform TEXT, price TEXT, publisher TEXT, title TEXT, upc TEXT, year INTEGER, type TEXT, extra TEXT, lent INTEGER, lentTo TEXT, lentOn INTEGER)';
 			this.log("create table");
 		    this.db.transaction( 
 		        enyo.bind(this,(function (transaction) { 
@@ -347,6 +488,7 @@ enyo.kind({
 	},
 	rendered: function(){
 	    this.inherited(arguments);
+	    this.$.syncSpinner.hide();
     	this.searchType="DVD";
     	this.filterBy='';
 	    this.buildItemCells();
@@ -363,11 +505,31 @@ enyo.kind({
 	    var token=enyo.getCookie("token");
 	    if(token!=undefined && token!=""){
 	    	this.userToken=token;
+			///LOAD LIBRARY FROM SERVER. If no items, do a bulk upload
+			this.$.syncSpinner.show();
+			this.$.woodenrowsAPI.setMethod("GET");
+			var data={
+				method:"user.getLibrary",
+				token: this.userToken
+			};
+			this.$.woodenrowsAPI.call(data);
 	    }else{
 	    	this.$.signupForm.hide();
 	    	this.$.loginForm.hide();
 	    	this.openDialog({dialog:"signinDialog"});
 	    }
+
+/*
+	    	this.$.signupForm.hide();
+	    	this.$.loginForm.hide();	    
+	    this.openDialog({dialog:"signinDialog"});*/
+	    
+	    var userid=enyo.getCookie("user");
+	    if(userid!=undefined && userid!=""){
+	    	this.userId=userid;
+	    }
+	    
+	    //this.log(enyo.getCookie("user"));
 	},
 	resizeHandler: function() {
 		this.buildItemCells();
@@ -391,6 +553,9 @@ enyo.kind({
 		var where="";
 		if(this.filterBy!="" && this.filterBy!=undefined){
 			where=' WHERE type="'+this.filterBy+'" ';
+			if(this.filterBy=='lent'){
+				where=' WHERE lent="1" ';
+			}
 			
 			if(this.searchQuery!=undefined && this.searchQuery!=""){
 				where+=' AND (title LIKE "%'+this.searchQuery+'%" OR artist LIKE "%'+this.searchQuery+'%" OR author LIKE "%'+this.searchQuery+'%") ';
@@ -437,10 +602,10 @@ enyo.kind({
 		var bounds = this.$.itemList.getBounds();
 		this.cellCount = Math.floor(bounds.width / 170);
 		this.rowCount = Math.floor(bounds.height / 170);
-		this.log(this.cellCount);
-		this.log(this.rowCount);
+		//this.log(this.cellCount);
+		//this.log(this.rowCount);
 		
-		this.log(this.data.length/this.cellCount);
+		//this.log(this.data.length/this.cellCount);
 		
 		if(this.data.length/this.cellCount<this.rowCount){  //not enough data for minimum number of rows
 			var minimum=this.cellCount*this.rowCount;
@@ -466,7 +631,7 @@ enyo.kind({
 			this.cells.push(c);
 		}
 		
-		this.log(this.data);
+		//this.log(this.data);
 		
 		this.$.itemList.refresh();
   },
@@ -474,13 +639,13 @@ enyo.kind({
 		var idx = inIndex * this.cellCount;
 
 
-		this.log("idx:",idx);
+		//this.log("idx:",idx);
 		if (idx >= 0 && idx < this.data.length) {
-			this.log("1: ",idx);
+			//this.log("1: ",idx);
 			for (var i=0, c; c=this.cells[i]; i++, idx++) {
-			this.log("2: ", i);
+			//this.log("2: ", i);
 				if (idx < this.data.length) {
-				this.log("3: ",idx);
+				//this.log("3: ",idx);
 					if(this.data[idx].placeholder==true){
 						c.addStyles("visibility: hidden; height: 170px;");
 					}else{
@@ -513,7 +678,7 @@ enyo.kind({
 						c.addStyles("visibility: visible; height: auto;");
 						
 						var type=this.bindingToType(this.data[idx].binding,this.data[idx].platform);
-  						this.log(this.data[idx]);
+  						//this.log(this.data[idx]);
 					
 						c.$.itemTitle.setContent(this.data[idx].title);
 						c.$.itemTitle.hide();
@@ -578,7 +743,7 @@ enyo.kind({
   	this.$.itemDetail.open();
   },
   awsItemSuccess: function(inSender,inResponse,inRequest){
-  	this.log(inResponse);
+  	//this.log(inResponse);
   	var parser=new DOMParser();
   	var xml=parser.parseFromString(inResponse,"text/xml");
   	var rows=[];
@@ -753,6 +918,11 @@ enyo.kind({
 	this.$.confirmDialog.open();
   
   },
+  showErrorDialog: function(content){
+	this.$.errorDialogText.setContent(content);
+	this.$.errorDialog.open();
+  
+  },
   returnItem: function(inSender,inEvent){
         this.showConfirmDialog("Has <b>"+this.currentItem.lentTo+"</b> returned <i>"+this.currentItem.title+"</i>?","itemWasReturned");
   },
@@ -771,6 +941,19 @@ enyo.kind({
 		    transaction.executeSql(string, [], enyo.bind(this,this.itemReturnedOK), enyo.bind(this,this.errorHandler)); 
 		}))
 	);
+	
+ 	if(this.userToken){
+ 		var data={
+ 			token: this.userToken,
+ 			method: 'library.returnItem',
+ 			owner: this.userId,
+ 			asin: this.currentItem.asin
+ 		};
+ 		
+ 		this.$.syncSpinner.show();
+ 		this.$.woodenrowsAPI.setMethod("POST");
+ 		this.$.woodenrowsAPI.call(data);
+ 	}
   
   },
   itemReturnedOK: function(){
@@ -798,7 +981,19 @@ enyo.kind({
 		    transaction.executeSql(string, [], enyo.bind(this,this.itemRemovedOK), enyo.bind(this,this.errorHandler)); 
 		}))
 	);
-  
+	
+	if(this.userToken){
+	    this.$.syncSpinner.show();
+	    var data={
+	    	token: this.userToken,
+	    	method: 'library.deleteItem',
+	    	owner: this.userId,
+	    	asin: this.currentItem.asin
+	    };
+	    
+	    this.$.woodenrowsAPI.setMethod("POST");
+	    this.$.woodenrowsAPI.call(data);
+    }
   },
   itemRemovedOK: function(){
     var cell=this.currentElement;
@@ -862,9 +1057,24 @@ enyo.kind({
 		    transaction.executeSql(string, [], enyo.bind(this,this.itemLentOK), enyo.bind(this,this.errorHandler)); 
 		}))
 	);
+ 	if(this.userToken){
+ 		var data={
+ 			token: this.userToken,
+ 			method: 'library.lendItem',
+ 			owner: this.userId,
+ 			asin: this.currentItem.asin,
+ 			lentTo: name,
+ 			lentOn: when
+ 		};
+
+		this.$.syncSpinner.show(); 		
+ 		this.$.woodenrowsAPI.setMethod("POST");
+ 		this.$.woodenrowsAPI.call(data);
+ 	}
  	
   },
   itemLentOK: function(){
+
 	this.loadLibrary(true);
       this.log(this.currentItem);
 		this.$.detailLendButton.hide();
@@ -889,6 +1099,7 @@ enyo.kind({
   	inSender.setClassName("icon-selected");
   },
   searchItems: function(inSender){
+  	inSender.setActive(true);
   	var url=this.apiUrl+"?Service=AWSECommerceService&Operation=ItemSearch&AssociateTag=frobba-20&ResponseGroup=Medium";
   	url+="&SearchIndex="+this.searchType;
   	var kw=this.$.addItemInput.getValue().replace(/\-/g,"");
@@ -912,6 +1123,10 @@ enyo.kind({
   	this.loadLibrary();
   },
   awsSearchSuccess: function(inSender,inResponse,inRequest){
+  	this.$.addItemSearch.setActive(false);
+  	enyo.keyboard.setManualMode(true);
+  	enyo.keyboard.hide();
+
   	this.log(inResponse);
   	var parser=new DOMParser();
   	var xml=parser.parseFromString(inResponse,"text/xml");
@@ -919,7 +1134,7 @@ enyo.kind({
   	var items=xml.getElementsByTagName("Item");
   	this.log("found "+items.length+" items");
   	
-  	
+
   	var itemCount=items.length;
   	for(var i=0;i<itemCount;i++){
   		var item=items[i];
@@ -1107,7 +1322,9 @@ enyo.kind({
   },
   resultItemSelect: function(inSender, inEvent){
   //	'INSERT INTO groupitems (groupid,accountid) VALUES ("'+guid+'","'+accountid+'")';
+  	this.log("~~~~~~~~~~~~~adding to db");
   	var row=this.searchResults[inEvent.rowIndex];
+  	this.log(row);
   	
   	var artist=this.sqlEscape(row.artist);
   	var asin=row.asin;
@@ -1124,12 +1341,38 @@ enyo.kind({
   	var type=this.searchType;
   	
   	this.addedItemASIN=asin;
-  	
+	this.$.addItemInput.setValue('');
+	
   	this.closeDialog({dialog:"resultsDialog"});
-  	enyo.keyboard.setManualMode();
-  	enyo.keyboard.hide();
+  	enyo.keyboard.setManualMode(false);
+
   	//this.closeDialog({dialog:"addItemDialog"});
 	this.doingSearch=false;
+	if(this.userToken){
+		this.$.syncSpinner.show();
+		var data={
+			token: this.userToken,
+			method: 'library.addItem',
+			artist: artist,
+			asin: asin,
+			binding: binding,
+			director: director,
+			image: row.image,
+			platform: platform,
+			price: price,
+			publisher: publisher,
+			title: title,
+			upc: upc,
+			year: year,
+			type: type,
+			lent: 0,
+			lentTo: '',
+			lentOn: null
+		};
+		this.log(data);
+		this.$.woodenrowsAPI.setMethod("POST");
+		this.$.woodenrowsAPI.call(data);
+	}
 	
   	
   	var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type) VALUES ("'+artist+'", "'+asin+'", "'+author+'", "'+binding+'", "'+director+'", "'+image+'", "'+platform+'", "'+price+'", "'+publisher+'", "'+title+'", "'+upc+'", "'+year+'","","'+type+'")';
@@ -1141,17 +1384,35 @@ enyo.kind({
         	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler)); 
     	})) 
 	);
+	
+	
   },
   shareItem: function(inSender,inEvent){
   	this.$.shareMenu.openAtControl(inSender,{top: -45});
   },
   openShare: function(inSender, inEvent){
   	this.shareVia=inSender.by;
-  	this.openDialog({dialog:"shareDialog"});
+  	var url=encodeURIComponent("http://woodenro.ws/item/"+this.userId+"-"+this.currentItem.asin);  	
+	var bitly="http://api.bitly.com/v3/shorten?login=woodenrows&apiKey=R_3e2540a11bc85f05554a4ae7ea5ed4f4&longUrl="+url+"&format=txt";
+	
+	this.$.syncSpinner.show();
+	enyo.xhr.request({
+	 url: bitly,
+	 method: "GET",
+	 callback: enyo.bind(this, "linkSuccess"),
+	 sync: false
+	});
+ 	
+  },
+  linkSuccess: function(inResponse,inRequest){
+	this.shareURL=enyo.string.trim(inResponse);
+	this.$.syncSpinner.hide();
+    this.openDialog({dialog:"shareDialog"});
+
   },
   shareOpened: function(inSender,inEvent){
   	var text=this.currentItem.title;
-  	var url=encodeURIComponent("http://zhephree.com/woodenrows/item.php?uid=12345&asin="+this.currentItem.asin);
+  	var url=encodeURIComponent(this.shareURL);
   	switch(this.shareVia){
   		case "twitter":
   			this.$.shareWebView.setUrl("https://twitter.com/intent/tweet?related=zhephree&text="+text+"&url="+url+"&via=WoodenRows");
@@ -1194,6 +1455,9 @@ enyo.kind({
   		}
   		c.push({caption:t,onclick:"filterItems", by:this.types[i]});
   	}
+  	
+  	c.push({caption:"Lent Out",onclick:"filterItems", by:'lent'});
+
   	
   	this.$.filterItemsMenu.filterItems=enyo.bind(this,this.filterItems);
   	this.$.filterItemsMenu.createComponents(c);
@@ -1264,6 +1528,9 @@ enyo.kind({
    	var p=this.$[inSender.dialog];
   	if(p){
   		p.close();
+  		if(inSender.dialog=='resultsDialog'){
+  		  	enyo.keyboard.setManualMode(false);
+  		}
   	}
   }
 });

@@ -5,6 +5,7 @@
   -webkit-border-image: none;
   background: url(../images/page-header.png) no-repeat left top;
   text-align: center;
+  height: 50px;
 }
 
 .shelf-header .enyo-header-inner {
