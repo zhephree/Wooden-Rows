@@ -127,13 +127,13 @@ enyo.kind({
 	        ]},
 	        {name:"signupForm",components:[
 	        	{kind:"RowGroup", caption:"Sign Up", components:[
-	        		{kind:"Input",name:"signupUsername", components:[
+	        		{kind:"Input",name:"signupUsername", autoCapitalize:"lowercase", spellcheck:false, autocorrect:false, components:[
 		        		{content:"Username",className:"enyo-label"}
 	        		]},
-	        		{kind:"Input",name:"signupPassword", components:[
+	        		{kind:"Input",name:"signupPassword", autoCapitalize:"lowercase", spellcheck:false, autocorrect:false, components:[
 		        		{content:"Password",className:"enyo-label"}
 	        		]},
-	        		{kind:"Input",name:"signupEmail", components:[
+	        		{kind:"Input",name:"signupEmail", autoCapitalize:"lowercase", inputType:"email",spellcheck:false, autocorrect:false, components:[
 		        		{content:"Email",className:"enyo-label"}
 	        		]},
 	        	]},
@@ -141,10 +141,10 @@ enyo.kind({
 	        ]},
 	        {name:"loginForm",components:[
 	        	{kind:"RowGroup", caption:"Log In", components:[
-	        		{kind:"Input",name:"loginUsername", components:[
+	        		{kind:"Input",name:"loginUsername", autoCapitalize:"lowercase", spellcheck:false, autocorrect:false, components:[
 		        		{content:"Username",className:"enyo-label"}
 	        		]},
-	        		{kind:"Input",name:"loginPassword", components:[
+	        		{kind:"PasswordInput",name:"loginPassword", autoCapitalize:"lowercase", spellcheck:false, autocorrect:false, components:[
 		        		{content:"Password",className:"enyo-label"}
 	        		]},
 	        	]},
@@ -268,6 +268,9 @@ enyo.kind({
 						this.serverLibrary=inResponse.result.library;
 						this.serverLoaded=true;
 						
+						this.shares.twitter=inResponse.result.user.shares.twitter;
+						this.shares.facebook=inResponse.result.user.shares.facebook;
+						
 						if(this.localLoaded){
 							if(this.serverLibrary.count==0){
 								//no items on the server.
@@ -286,7 +289,14 @@ enyo.kind({
 									this.$.woodenrowsAPI.setMethod("POST");
 									this.$.woodenrowsAPI.call(data);
 								}
-							}						
+							}else{
+								this.checkLocalLibrary();
+							}
+						}else{
+							if(this.serverLibrary.count>0){
+								this.localLoaded=true;
+							}
+							this.checkLocalLibrary();
 						}
 
 						this.$.syncSpinner.hide();		
@@ -324,6 +334,59 @@ enyo.kind({
 		this.showErrorDialog('Unknown wAPI Failure. Server may be down.');
 		
 	},
+	checkLocalLibrary: function(){
+		this.log("checking load statuses...");
+		if(this.localLoaded && this.serverLoaded){
+			this.log("both loaded");
+			if(this.serverLibrary.count>0 && (this.data.length==0 || this.data[0].placeholder==true)){ //no local data, but there's server data
+				this.log("going to import");
+				/*for(var i=0;i<this.serverLibrary.count;i++){
+					var item=this.serverLibrary.items[i];
+					var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type) VALUES ("'+item.artist+'", "'+item.asin+'", "'+item.author+'", "'+item.binding+'", "'+item.director+'", "'+item.image+'", "'+item.platform+'", "'+item.price+'", "'+item.publisher+'", "'+item.title+'", "'+item.upc+'", "'+item.year+'","","'+item.type+'")';
+				  	
+				  	//this.log(sql);
+				  	
+					this.db.transaction( 
+					    enyo.bind(this,(function (transaction) { 
+				        	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler)); 
+				    	})) 
+					);
+
+				}
+				this.log("finished loop");*/
+				this.$.syncSpinner.show();
+				this.insertArray(this.serverLibrary.items);
+			}
+		}
+	},
+	insertArray: function(array,callback){
+		this.log("insert array...");
+		this.strings=[];
+		this.asyncCount=array.length;
+		this.asyncOn=0;
+		this.asyncArray=array;
+		this.db.transaction( 
+	        enyo.bind(this,(function (transaction) { 			
+	        	this.log("before loop");
+				for(var a=0;a<this.asyncArray.length;a++){
+							            transaction.executeSql('INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type) VALUES ("'+this.asyncArray[a].artist+'", "'+this.asyncArray[a].asin+'", "'+this.asyncArray[a].author+'", "'+this.asyncArray[a].binding+'", "'+this.asyncArray[a].director+'", "'+this.asyncArray[a].image+'", "'+this.asyncArray[a].platform+'", "'+this.asyncArray[a].price+'", "'+this.asyncArray[a].publisher+'", "'+this.asyncArray[a].title+'", "'+this.asyncArray[a].upc+'", "'+this.asyncArray[a].year+'","","'+this.asyncArray[a].type+'")', [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler)); 
+				}
+				this.log("after loop");
+	        })) 
+	    );
+	
+
+	},
+	libraryAsyncSuccess: function(transaction, results){
+		this.asyncOn++;
+		this.log("async success");
+		this.log(this.asyncOn);
+		this.log(this.asyncCount);
+		if(this.asyncOn==this.asyncCount){
+			this.loadLibrary();
+			this.$.syncSpinner.hide();
+		}
+	},	
 	showSignUpForm: function(inSender, inEvent){
 		this.$.signupForm.show();
 		this.$.loginForm.hide();
@@ -356,6 +419,8 @@ enyo.kind({
 		try {
 			if(results.rows.length==0){
 				this.log("no items in library");
+				this.localLoaded=true;
+				this.checkLocalLibrary();
 				this.buildItemCells();
 				
 				this.$.itemList.punt();
@@ -411,9 +476,12 @@ enyo.kind({
 							this.$.woodenrowsAPI.setMethod("POST");
 							this.$.woodenrowsAPI.call(data);
 						}
+					}else{ //stuff on server
+						this.log("local loaded; no server stuff");
+						this.checkLocalLibrary();
 					}
 				}else{
-					
+					this.checkLocalLibrary();	
 				}
 				
 				
@@ -449,6 +517,7 @@ enyo.kind({
 		//first thing's first! do we have any data added?
 		this.serverLoaded=false;
 		this.localLoaded=false;
+		this.shares={twitter:{},facebook:{}};
 		try {
 			//console.log("creating db");
 			this.db = openDatabase('library', '', 'library stuff', 65536);
@@ -1392,17 +1461,38 @@ enyo.kind({
   },
   openShare: function(inSender, inEvent){
   	this.shareVia=inSender.by;
-  	var url=encodeURIComponent("http://woodenro.ws/item/"+this.userId+"-"+this.currentItem.asin);  	
-	var bitly="http://api.bitly.com/v3/shorten?login=woodenrows&apiKey=R_3e2540a11bc85f05554a4ae7ea5ed4f4&longUrl="+url+"&format=txt";
-	
-	this.$.syncSpinner.show();
-	enyo.xhr.request({
-	 url: bitly,
-	 method: "GET",
-	 callback: enyo.bind(this, "linkSuccess"),
-	 sync: false
-	});
- 	
+  	var ok=true;
+  	switch(this.shareVia){
+  		case "twitter":
+  			if(this.shares.twitter.token){
+  				
+  			}else{
+  				ok=false;
+  				this.showConfirmDialog("You do not currently have your Twitter account linked to Wooden Rows. Would you like to visit the Wooden Rows website and do this now?","linkNetwork");
+  			}
+  			break;
+  		case "facebook":
+  			if(this.shares.facebook.token){
+  				
+  			}else{
+  				ok=false;
+  				this.showConfirmDialog("You do not currently have your Facebook account linked to Wooden Rows. Would you like to visit the Wooden Rows website and do this now?","linkNetwork");
+  			}
+  			break;
+  	}
+  	
+  	if(ok){
+	  	var url=encodeURIComponent("http://woodenro.ws/item/"+this.userId+"-"+this.currentItem.asin);  	
+		var bitly="http://api.bitly.com/v3/shorten?login=woodenrows&apiKey=R_3e2540a11bc85f05554a4ae7ea5ed4f4&longUrl="+url+"&format=txt";
+		
+		this.$.syncSpinner.show();
+		enyo.xhr.request({
+		 url: bitly,
+		 method: "GET",
+		 callback: enyo.bind(this, "linkSuccess"),
+		 sync: false
+		});
+	} 	
   },
   linkSuccess: function(inResponse,inRequest){
 	this.shareURL=enyo.string.trim(inResponse);
@@ -1410,6 +1500,10 @@ enyo.kind({
     this.openDialog({dialog:"shareDialog"});
 
   },
+  linkNetwork: function(){
+  	window.open("http://woodenro.ws/sharing.php");
+  },
+  
   shareOpened: function(inSender,inEvent){
   	var text=this.currentItem.title;
   	var url=encodeURIComponent(this.shareURL);

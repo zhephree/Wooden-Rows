@@ -1,10 +1,10 @@
 {
 	"id": "com.zhephree.woodenrows",
-	"version": "0.0.1",
+	"version": "0.0.3",
 	"vendor": "Zhephree",
 	"type": "web",
 	"main": "index.html",
 	"title": "Wooden Rows",
-	"icon": "icon.png",
+	"icon": "icon_64.png",
 	"uiRevision":2
 }
