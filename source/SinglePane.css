@@ -210,3 +210,17 @@
 	padding: 7px;
 	font-size: 16px;
 }
+
+.emptyLibrary {
+	position: fixed;
+	z-index: 10000;
+	top: 50%;
+	left: 50%;
+	margin-left: -200px;
+	background: rgba(0,0,0,0.4);
+	color: #fff;
+	text-align: center;
+	padding: 4px;
+	border-radius: 50%;
+	-webkit-border-radius: 10px;
+}

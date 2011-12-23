@@ -5,6 +5,7 @@ enyo.depends(
   "source/md5.js",
   "$enyo-lib/contactsui/",
 	"source/SinglePane.js",
+  "source/oauth.js",
 	"source/SinglePane.css",
 	"source/animate.css"
 );

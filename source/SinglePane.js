@@ -8,9 +8,14 @@ enyo.kind({
 		{kind: "WebService", name:"woodenrowsAPI", url:"http://woodenro.ws/api.php",onSuccess:"wAPISuccess", onFailure: "wAPIFailure"},
 		{name: "pickContact", kind: "com.palm.library.contactsui.peoplePicker",onContactClick:"contactClicked"},
 		{kind: "Menu", name: "sortItemsMenu", onBeforeOpen:"",components: [
-			{caption:"Added", onclick:"sortItems", by:"added"},
-			{caption:"Title", onclick:"sortItems", by:"title"},
-			{caption:"Year", onclick:"sortItems", by:"year"},
+			{caption:"Added ▲", onclick:"sortItems", by:"added"},
+			{caption:"Added ▼", onclick:"sortItems", by:"addedD"},
+			{caption:"Title ▲", onclick:"sortItems", by:"title"},
+			{caption:"Title ▼", onclick:"sortItems", by:"titleD"},
+			{caption:"Type ▲", onclick:"sortItems", by:"type"},
+			{caption:"Type ▼", onclick:"sortItems", by:"typeD"},
+			{caption:"Year ▲", onclick:"sortItems", by:"year"},
+			{caption:"Year ▼", onclick:"sortItems", by:"yearD"},
 		]},		
 		{kind: "Menu", name: "shareMenu", onBeforeOpen:"",components: [
 			{caption:"Twitter", onclick:"openShare", by:"twitter"},
@@ -119,6 +124,16 @@ enyo.kind({
 			{kind:"WebView", name:"shareWebView", height:"400px"},
 			{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"shareDialog"}
 		]},
+		{kind: "ModalDialog", name:"twitterDialog", scrim:true, caption: "Share on Twitter", width: "600px",onOpen:"twitterOpened",components:[
+	        	{kind:"RowGroup", caption:"", components:[
+	        		{kind:"Input",name:"twitterShare", oninput:"tweetChanged", hint:"Add a comment... (optional)",components:[
+	        			{content:"140",name:"tweetCounter",className:"enyo-label"}
+	        		]},
+	        	]},
+			{kind:"HtmlContent", name:"tweetPreview"},
+			{kind: "Button", name:"shareTwitter", caption: "Share", onclick:"shareTwitter", dialog:"twitterDialog"},
+			{kind: "Button", caption: "Cancel", onclick:"closeDialog", dialog:"twitterDialog"}
+		]},
 	    {kind: "Toaster", name:"signinDialog", width:"600px",lazy:false,className: "enyo-dialog topdown", flyInFrom: "top", autoClose:false, modal:true, dismissWithClick:false,dismissWithEscape:false,onOpen:'fixPrivacyLinks',components: [
 	        {kind:"HtmlContent",content: "Welcome to Wooden Rows! To get things started, you'll have to sign up for a Zhephree account. A Zhephree Account is free and quick to set up. This will allow you to store your library in the cloud so you can access it anywhere in the world. It'll also allow you to easily sign in to other Zhephree apps.", style: "font-size: 14px;"},
 	        {layoutKind: "HFlexLayout", pack: "center", components: [
@@ -137,7 +152,8 @@ enyo.kind({
 		        		{content:"Email",className:"enyo-label"}
 	        		]},
 	        	]},
-	            {kind: "ActivityButton", caption: "Sign Up", name: 'signupFormOK', onclick: "doSignUp", action:'', className: "enyo-button-affirmative"},	        				{kind: 'HtmlContent', content:'<a href="http://accounts.zhephree.com/privacy.php" id="privacylink">Privacy Policy</a> and <a href="http://accounts.zhephree.com/terms.php" id="termslink">Terms of Use</a>', style: 'font-size: 14px'}
+	            {kind: "ActivityButton", caption: "Sign Up", name: 'signupFormOK', onclick: "doSignUp", action:'', className: "enyo-button-affirmative"},
+	            {kind: 'HtmlContent', content:'<a href="http://accounts.zhephree.com/privacy.php" id="privacylink">Privacy Policy</a> and <a href="http://accounts.zhephree.com/terms.php" id="termslink">Terms of Use</a>', style: 'font-size: 14px'}
 	        ]},
 	        {name:"loginForm",components:[
 	        	{kind:"RowGroup", caption:"Log In", components:[
@@ -148,19 +164,32 @@ enyo.kind({
 		        		{content:"Password",className:"enyo-label"}
 	        		]},
 	        	]},
-	            {kind: "ActivityButton", caption: "Log In", name: 'loginFormOK', onclick: "doLogin", action:'', className: "enyo-button-affirmative"},	        	
+	            {kind: "ActivityButton", caption: "Log In", name: 'loginFormOK', onclick: "doLogin", action:'', className: "enyo-button-affirmative"},	        
+	            {kind: 'HtmlContent', content:'<a href="http://accounts.zhephree.com/forgot.php" id="forgotlink">Forgot Password?</a>', style: 'font-size: 14px'}
+	
 	        ]}
 	    ]},
+			{
+				name: "openApp", 
+				kind: enyo.PalmService,
+			    service: "palm://com.palm.applicationManager/"
+			},		
+		{kind:"HtmlContent",className:"emptyLibrary", name:"emptyLibrary"}
 		
 	],
-	fixPrivacyLinks: function() {
-		var goToLinkBound=enyo.bind(this,this.goToLink);
-		document.getElementById("privacylink").addEventListener('click',goToLinkBound,false);
-		document.getElementById("termslink").addEventListener('click',goToLinkBound,false);
+	fixPrivacyLinks: function(firstTime) {
+		if(firstTime){
+			var goToLinkBound=enyo.bind(this,this.goToLink);
+			document.getElementById("privacylink").addEventListener('click',goToLinkBound,false);
+			document.getElementById("termslink").addEventListener('click',goToLinkBound,false);
+			document.getElementById("forgotlink").addEventListener('click',goToLinkBound,false);
+		}
 	},
 	goToLink: function(e){
-		e.preventDefault();
-		window.open(e.target.href);
+		//e.preventDefault();
+		//window.open(e.target.href);
+		this.$.openApp.call({target: e.target.href},{method:"open"})
+		//return false;
 	},
 	doSignUp: function(inSender, inEvent){
 		inSender.setActive(true);
@@ -293,8 +322,9 @@ enyo.kind({
 								this.checkLocalLibrary();
 							}
 						}else{
-							if(this.serverLibrary.count>0){
-								this.localLoaded=true;
+							if(this.serverLibrary.count>0 && this.data[0].placeholder==true){
+								this.log("server load success; forcing localload=true");
+								//this.localLoaded=true;
 							}
 							this.checkLocalLibrary();
 						}
@@ -336,10 +366,29 @@ enyo.kind({
 	},
 	checkLocalLibrary: function(){
 		this.log("checking load statuses...");
+		//this.log("local="+this.localLoaded);
+		if(this.localLoaded){
+			
+			this.loadCount++;
+		}
+		
+		if(this.localLoaded && this.loadCount==1){
+		    var sort=enyo.getCookie("sort");
+		    if(sort!=undefined && sort!=""){
+		    	this.sortItems({by:sort});
+		    }		
+		}
+
+		if(this.serverLibrary.count>0 && this.data[0].placeholder==true){
+			this.log("server load success; forcing localload=true");
+			//this.localLoaded=true;
+		}
+		
 		if(this.localLoaded && this.serverLoaded){
 			this.log("both loaded");
-			if(this.serverLibrary.count>0 && (this.data.length==0 || this.data[0].placeholder==true)){ //no local data, but there's server data
-				this.log("going to import");
+			if(this.serverLibrary.count>0 && (this.data.length==0 || this.data[0].placeholder==true) && (this.searchQuery=="" || this.searchQuery==undefined)){ //no local data, but there's server data
+				enyo.windows.addBannerMessage("Syncing library...","{}");
+
 				/*for(var i=0;i<this.serverLibrary.count;i++){
 					var item=this.serverLibrary.items[i];
 					var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type) VALUES ("'+item.artist+'", "'+item.asin+'", "'+item.author+'", "'+item.binding+'", "'+item.director+'", "'+item.image+'", "'+item.platform+'", "'+item.price+'", "'+item.publisher+'", "'+item.title+'", "'+item.upc+'", "'+item.year+'","","'+item.type+'")';
@@ -355,8 +404,10 @@ enyo.kind({
 				}
 				this.log("finished loop");*/
 				this.$.syncSpinner.show();
-				this.insertArray(this.serverLibrary.items);
+				enyo.asyncMethod(this,"insertArray",this.serverLibrary.items);
 			}
+			
+			
 		}
 	},
 	insertArray: function(array,callback){
@@ -369,7 +420,7 @@ enyo.kind({
 	        enyo.bind(this,(function (transaction) { 			
 	        	this.log("before loop");
 				for(var a=0;a<this.asyncArray.length;a++){
-							            transaction.executeSql('INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type) VALUES ("'+this.asyncArray[a].artist+'", "'+this.asyncArray[a].asin+'", "'+this.asyncArray[a].author+'", "'+this.asyncArray[a].binding+'", "'+this.asyncArray[a].director+'", "'+this.asyncArray[a].image+'", "'+this.asyncArray[a].platform+'", "'+this.asyncArray[a].price+'", "'+this.asyncArray[a].publisher+'", "'+this.asyncArray[a].title+'", "'+this.asyncArray[a].upc+'", "'+this.asyncArray[a].year+'","","'+this.asyncArray[a].type+'")', [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler)); 
+							            transaction.executeSql('INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort) VALUES ("'+this.asyncArray[a].artist+'", "'+this.asyncArray[a].asin+'", "'+this.asyncArray[a].author+'", "'+this.asyncArray[a].binding+'", "'+this.asyncArray[a].director+'", "'+this.asyncArray[a].image+'", "'+this.asyncArray[a].platform+'", "'+this.asyncArray[a].price+'", "'+this.asyncArray[a].publisher+'", "'+this.asyncArray[a].title+'", "'+this.asyncArray[a].upc+'", "'+this.asyncArray[a].year+'","","'+this.asyncArray[a].type+'","'+this.asyncArray[a].title_sort+'")', [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler)); 
 				}
 				this.log("after loop");
 	        })) 
@@ -420,12 +471,19 @@ enyo.kind({
 			if(results.rows.length==0){
 				this.log("no items in library");
 				this.localLoaded=true;
-				this.checkLocalLibrary();
 				this.buildItemCells();
+				if(this.filterBy=="" || this.filterBy.toLowerCase()=="all"){
+					this.checkLocalLibrary();
+					this.$.emptyLibrary.hide()
+				}else{
+					this.$.emptyLibrary.setContent("There are currently no "+this.filterBy+" items in your library");
+					this.$.emptyLibrary.show();
+				}
 				
 				this.$.itemList.punt();
 				
 			}else{
+				this.$.emptyLibrary.hide()
 				for (var i = 0; i < results.rows.length; i++) {
 					var row = results.rows.item(i);
 					row.extra=row.extra.replace(/\&nbsp\;/g,'"');
@@ -455,6 +513,7 @@ enyo.kind({
 				}
 				
 				this.log(this.data);
+				this.log("querydata handler set localloaded=true");
 				this.localLoaded=true;
 				
 				//see if we should bulk upload
@@ -477,7 +536,7 @@ enyo.kind({
 							this.$.woodenrowsAPI.call(data);
 						}
 					}else{ //stuff on server
-						this.log("local loaded; no server stuff");
+						this.log("local loaded; server has stuff");
 						this.checkLocalLibrary();
 					}
 				}else{
@@ -506,12 +565,14 @@ enyo.kind({
 		}catch(e){}
 	},	
 	errorHandler: function(transaction, error){
-		if(error.description){
-			console.log(error.description);
+		if(error){
+			if(error.description){
+				console.log(error.description);
+			}
+			console.log("error: "+error);
+			//console.log("error: "+enyo.json.stringify(error));	
+			this.log(error);
 		}
-		console.log("error: "+error);
-		//console.log("error: "+enyo.json.stringify(error));	
-		this.log(error);
 	},
 	create: function(){
 		//first thing's first! do we have any data added?
@@ -532,7 +593,7 @@ enyo.kind({
 			//console.log("creating table");
 			this.nullHandleCount = 0;
 			
-			var string = 'CREATE TABLE IF NOT EXISTS library (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asin TEXT NOT NULL, author TEXT, binding TEXT, director TEXT, image TEXT, platform TEXT, price TEXT, publisher TEXT, title TEXT, upc TEXT, year INTEGER, type TEXT, extra TEXT, lent INTEGER, lentTo TEXT, lentOn INTEGER)';
+			var string = 'CREATE TABLE IF NOT EXISTS library (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asin TEXT NOT NULL, author TEXT, binding TEXT, director TEXT, image TEXT, platform TEXT, price TEXT, publisher TEXT, title TEXT, upc TEXT, year INTEGER, type TEXT, extra TEXT, lent INTEGER, lentTo TEXT, lentOn INTEGER, title_sort TEXT)';
 			this.log("create table");
 		    this.db.transaction( 
 		        enyo.bind(this,(function (transaction) { 
@@ -557,7 +618,9 @@ enyo.kind({
 	},
 	rendered: function(){
 	    this.inherited(arguments);
+		this.$.emptyLibrary.hide();
 	    this.$.syncSpinner.hide();
+	    this.loadCount=0;
     	this.searchType="DVD";
     	this.filterBy='';
 	    this.buildItemCells();
@@ -598,22 +661,41 @@ enyo.kind({
 	    	this.userId=userid;
 	    }
 	    
+	    
 	    //this.log(enyo.getCookie("user"));
 	},
 	resizeHandler: function() {
 		this.buildItemCells();
 		this.inherited(arguments);
 	},  
-	loadLibrary: function(setCurrent,isFiltering){
+	loadLibrary: function(setCurrent,isFiltering,isSearching){
 		this.log("loading library");
 		//query table...
 		var orderby="";
 		switch(this.sortBy){
+			case "added":
+				orderby=" ORDER BY id ASC";
+				break;
+			case "addedD":
+				orderby=" ORDER BY id DESC";
+				break;
 			case "title":
-				orderby=" ORDER BY title ASC";
+				orderby=" ORDER BY title_sort ASC";
+				break;
+			case "titleD":
+				orderby=" ORDER BY title_sort DESC";
+				break;
+			case "type":
+				orderby=" ORDER BY type ASC";
+				break;
+			case "typeD":
+				orderby=" ORDER BY type DESC";
 				break;
 			case "year":
 				orderby=" ORDER BY year ASC";
+				break;
+			case "yearD":
+				orderby=" ORDER BY year DESC";
 				break;
 		}
 
@@ -735,12 +817,12 @@ enyo.kind({
 
 						
 						if(this.data[idx].new==true){
-							w.addClass("animated");
-							w.addClass("bounceInDown");
+							//w.addClass("animated");
+							//w.addClass("bounceInDown");
 							//this.log("new: "+this.data[idx].title);
 							//this.data[idx].new=false;
 						}else{
-							w.removeClass("bounceInDown");	
+							//w.removeClass("bounceInDown");	
 												
 						}
 						
@@ -1157,6 +1239,7 @@ enyo.kind({
   confirmDialogOK: function(inSender,inEvent){
   	if(this[inSender.action]){
   		this[inSender.action]();
+	  	this.$.confirmDialog.close();
   	}
   },
   setSearchType: function(inSender){
@@ -1393,68 +1476,99 @@ enyo.kind({
   //	'INSERT INTO groupitems (groupid,accountid) VALUES ("'+guid+'","'+accountid+'")';
   	this.log("~~~~~~~~~~~~~adding to db");
   	var row=this.searchResults[inEvent.rowIndex];
+  	this.rowData=row;
   	this.log(row);
   	
-  	var artist=this.sqlEscape(row.artist);
-  	var asin=row.asin;
-  	var author=this.sqlEscape(row.author);
-  	var binding=this.sqlEscape(row.binding);
-  	var director=this.sqlEscape(row.director);
-  	var image=this.sqlEscape(row.image);
-  	var platform=this.sqlEscape(row.platform);
-  	var price=this.sqlEscape(row.price);
-  	var publisher=this.sqlEscape(row.publisher);
-  	var title=this.sqlEscape(row.title);
-  	var upc=this.sqlEscape(row.upc);
-  	var year=row.year;
-  	var type=this.searchType;
+  	//first, see if this is already in the library
+  	var inLibrary=false;
+  	var count=this.data.length;
+  	for(var i=0;i<count;i++){
+  		this.log(this.data[i]);
+  		if(row.title==this.data[i].title && this.searchType==this.data[i].type){
+  			inLibrary=true;
+  			break;
+  		}
+  	}
   	
-  	this.addedItemASIN=asin;
-	this.$.addItemInput.setValue('');
+  	if(!inLibrary){
+		this.saveItem();
+	}else{
+		this.showConfirmDialog("This item appears to already be in your library. Do you want to add it anyway?","saveItem");
 	
-  	this.closeDialog({dialog:"resultsDialog"});
-  	enyo.keyboard.setManualMode(false);
-
-  	//this.closeDialog({dialog:"addItemDialog"});
-	this.doingSearch=false;
-	if(this.userToken){
-		this.$.syncSpinner.show();
-		var data={
-			token: this.userToken,
-			method: 'library.addItem',
-			artist: artist,
-			asin: asin,
-			binding: binding,
-			director: director,
-			image: row.image,
-			platform: platform,
-			price: price,
-			publisher: publisher,
-			title: title,
-			upc: upc,
-			year: year,
-			type: type,
-			lent: 0,
-			lentTo: '',
-			lentOn: null
-		};
-		this.log(data);
-		this.$.woodenrowsAPI.setMethod("POST");
-		this.$.woodenrowsAPI.call(data);
-	}
+	}	
 	
-  	
-  	var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type) VALUES ("'+artist+'", "'+asin+'", "'+author+'", "'+binding+'", "'+director+'", "'+image+'", "'+platform+'", "'+price+'", "'+publisher+'", "'+title+'", "'+upc+'", "'+year+'","","'+type+'")';
-  	
-  	this.log(sql);
-  	
-	this.db.transaction( 
-	    enyo.bind(this,(function (transaction) { 
-        	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler)); 
-    	})) 
-	);
+  },
+  saveItem: function(){
+  		row=this.rowData;
+	  	var artist=this.sqlEscape(row.artist);
+	  	var asin=row.asin;
+	  	var author=this.sqlEscape(row.author);
+	  	var binding=this.sqlEscape(row.binding);
+	  	var director=this.sqlEscape(row.director);
+	  	var image=this.sqlEscape(row.image);
+	  	var platform=this.sqlEscape(row.platform);
+	  	var price=this.sqlEscape(row.price);
+	  	var publisher=this.sqlEscape(row.publisher);
+	  	var title=this.sqlEscape(row.title);
+	  	var upc=this.sqlEscape(row.upc);
+	  	var year=row.year;
+	  	var type=this.searchType;
+	  	
+	  	//create title to sort by
+	  	var title_sort=row.title;
+	  	if(title.toLowerCase().substr(0,4)=="the "){
+	  		title_sort=title.substr(5);
+	  	}else if(title.toLowerCase().substr(0,2)=="a "){
+	  		title_sort=title.substr(3);
+	  	}else if(title.toLowerCase().substr(0,3)=="an "){
+	  		title_sort=title.substr(4);
+	  	}
+	  	
+	  	this.addedItemASIN=asin;
+		this.$.addItemInput.setValue('');
+		
+	  	this.closeDialog({dialog:"resultsDialog"});
+	  	enyo.keyboard.setManualMode(false);
 	
-	
+	  	//this.closeDialog({dialog:"addItemDialog"});
+		this.doingSearch=false;
+		if(this.userToken){
+			this.$.syncSpinner.show();
+			var data={
+				token: this.userToken,
+				method: 'library.addItem',
+				artist: artist,
+				asin: asin,
+				binding: binding,
+				director: director,
+				image: row.image,
+				platform: platform,
+				price: price,
+				publisher: publisher,
+				title: title,
+				upc: upc,
+				year: year,
+				type: type,
+				lent: 0,
+				lentTo: '',
+				lentOn: null,
+				title_sort: title_sort
+			};
+			this.log(data);
+			this.$.woodenrowsAPI.setMethod("POST");
+			this.$.woodenrowsAPI.call(data);
+		}
+		
+	  	
+	  	var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort) VALUES ("'+artist+'", "'+asin+'", "'+author+'", "'+binding+'", "'+director+'", "'+image+'", "'+platform+'", "'+price+'", "'+publisher+'", "'+title+'", "'+upc+'", "'+year+'","","'+type+'","'+title_sort+'")';
+	  	
+	  	this.log(sql);
+	  	
+		this.db.transaction( 
+		    enyo.bind(this,(function (transaction) { 
+	        	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler)); 
+	    	})) 
+		);  
   },
   shareItem: function(inSender,inEvent){
   	this.$.shareMenu.openAtControl(inSender,{top: -45});
@@ -1462,10 +1576,11 @@ enyo.kind({
   openShare: function(inSender, inEvent){
   	this.shareVia=inSender.by;
   	var ok=true;
+  	this.dialog="shareDialog";
   	switch(this.shareVia){
   		case "twitter":
   			if(this.shares.twitter.token){
-  				
+				this.dialog="twitterDialog";
   			}else{
   				ok=false;
   				this.showConfirmDialog("You do not currently have your Twitter account linked to Wooden Rows. Would you like to visit the Wooden Rows website and do this now?","linkNetwork");
@@ -1497,7 +1612,7 @@ enyo.kind({
   linkSuccess: function(inResponse,inRequest){
 	this.shareURL=enyo.string.trim(inResponse);
 	this.$.syncSpinner.hide();
-    this.openDialog({dialog:"shareDialog"});
+    this.openDialog({dialog:this.dialog});
 
   },
   linkNetwork: function(){
@@ -1520,12 +1635,89 @@ enyo.kind({
   			break;
   	}
   },
+  twitterOpened: function(inSender,inEvent){
+  		var base="Check out "+this.currentItem.title+" in my library! "+this.shareURL;
+  		if(base.length>140){
+  			base=base.replace("in my library! ","");
+  		}
+  		
+  		if(base.length>140){
+  			base=base.replace("Check out ","");
+  		}
+  		this.tweet=base;
+  		this.$.tweetPreview.setContent(base);
+	  	this.$.tweetCounter.setContent(140-this.tweet.length);
+
+  },
+  tweetChanged: function(inSender,inEvent){
+  	var text=inSender.getValue();
+  	if(!text){
+  		var base="Check out "+this.currentItem.title+" in my library! "+this.shareURL;
+  		if(base.length>140){
+  			base=base.replace("in my library! ","");
+  		}
+  		
+  		if(base.length>140){
+  			base=base.replace("Check out ","");
+  		}
+  		this.tweet=base;
+  	}else{
+  		var tweet=text+" | "+this.currentItem.title+" "+this.shareURL;
+  		if(tweet.length>140){
+  			tweet=text+" "+this.shareURL;
+  		}
+	  	this.tweet=tweet;
+  	}
+  	this.$.tweetPreview.setContent(this.tweet);
+  	this.$.tweetPreview.render();
+  	
+  	this.$.tweetCounter.setContent(140-this.tweet.length);
+  	
+  	if(140-this.tweet.length<0){
+  		this.$.shareTwitter.setDisabled(true);
+  	}else{
+  		this.$.shareTwitter.setDisabled(false);
+  	}
+  },
+  shareTwitter: function(inSender,inEvent){
+	var oauth= OAuth({
+		'consumerKey':'ZFYUlylX9YIwXS2vGHUDhg',
+		'consumerSecret':'BtQ6XjJJYeO6mpRd1CINdxdlBaJoBdudRK4fAmY',
+		'requestTokenUrl':'https://api.twitter.com/oauth/request_token',
+		'authorizationUrl':'https://api.twitter.com/oauth/authorize',
+		'accessTokenUrl':'https://api.twitter.com/oauth/access_token',
+	});
+	
+	this.log(oauth);
+	
+	oauth.setAccessToken([this.shares.twitter.token,this.shares.twitter.secret]);  
+	var tweetData={status: this.tweet};
+	oauth.request({
+		method: "POST",
+		url: "http://api.twitter.com/1/statuses/update.json",
+		data: tweetData,
+		success: enyo.bind(this,"twitterSuccess"),
+		failure: enyo.bind(this,"errorHandler")
+	});
+	
+  },
+  twitterSuccess:function(inResponse,inRequest){
+  	this.closeDialog({dialog:"twitterDialog"});
+	enyo.windows.addBannerMessage("Item shared on Twitter!","{}");  	
+  },
   sortItemsMenu: function(inSender,inEvent){
   	this.$.sortItemsMenu.openAtControl(inSender,{top: -45});
   },
   sortItems: function(inSender,inEvent){
   	this.sortBy=inSender.by;
+  	enyo.setCookie("sort",this.sortBy);
+  	
   	var cap=this.sortBy.charAt(0).toUpperCase() + this.sortBy.slice(1)
+  	this.log(cap);
+  	if(cap.substr(cap.length-1)=="D"){
+  		cap=cap.substr(0,cap.length-1);
+  		cap=cap+"▼";
+  	}
   	this.$.sortItemsButton.setCaption('Sort: '+cap);
   	this.loadLibrary();
   },
