@@ -224,3 +224,106 @@
 	border-radius: 50%;
 	-webkit-border-radius: 10px;
 }
+
+
+/*PHONE SPECIFIC STUFF*/
+@media only screen and (max-device-width: 480px) {
+.dvd-img, .xbox-img, .wii-img {
+    width: 58px !important;
+    height: 80px !important;
+    padding-left: 0px;
+}
+
+.dvd, .xbox, .wii {
+    width: 81px !important;
+    height: 100px !important;
+    /*background: url(../images/dvd-overlay.png) no-repeat left top;*/
+    display:block;
+    margin-top: -84px !important;
+    margin-left: -2px;  
+}
+
+.bluray-img {
+    width: 60px !important;
+    height: 76px !important;
+    padding-left: 0px;
+    /*-webkit-mask-image: url(../images/bluray-mask.png);*/
+}
+
+.bluray {
+    width: 81px !important;
+    height: 100px !important;
+    /*background: url(../images/dvd-overlay.png) no-repeat left top;*/
+    display:block;
+    margin-top: -86px !important;
+    margin-left: -1px;  
+}
+
+.ps3-img {
+    width: 58px !important;
+    height: 67px !important;
+    padding-left: 0px;
+}
+
+.ps3 {
+    width: 81px !important;
+    height: 100px !important;
+    /*background: url(../images/dvd-overlay.png) no-repeat left top;*/
+    display:block;
+    margin-top: -84px !important;
+    margin-left: -16px;  
+}
+
+.ds-img, .tds-img {
+    width: 58px !important;
+    height: 51px !important;
+    padding-left: 0px;
+}
+
+.ds, .tds {
+    width: 81px !important;
+    height: 100px !important;
+    /*background: url(../images/dvd-overlay.png) no-repeat left top;*/
+    display:block;
+    margin-top: -85px !important;
+    margin-left: -2px;  
+}
+
+.cd-img {
+    width: 58px !important;
+    padding-left: 15px;
+}
+.cd {
+    width: 82px !important;
+    height: 100px !important;
+    display: block;
+    margin-top: -85px !important;
+    margin-left: -8px;
+}
+
+
+.book {
+    width: 78px !important;
+    height: 100px !important;
+    display: block;
+    margin-top: -87px !important;
+    margin-left: 14px;
+}
+
+.book-img {
+    width: 52px !important;
+    height: 80px !important;
+    padding-left: 15px;
+}
+
+.default {
+	display: none;
+}
+
+.default-img {
+	border-width: 7px 29px 29px 25px;
+	-webkit-border-image: url(../images/default-overlay.png) 7 31 26 24 stretch;
+	margin-left: -20px;
+}
+
+}
