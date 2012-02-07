@@ -4,6 +4,7 @@ enyo.depends(
   "source/aws.js",
   "source/md5.js",
   "$enyo-lib/contactsui/",
+  "source/PeoplePicker.js",
 	"source/SinglePane.js",
   "source/oauth.js",
 	"source/SinglePane.css",

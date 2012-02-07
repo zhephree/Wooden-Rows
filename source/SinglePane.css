@@ -28,10 +28,10 @@
 }
 
 .enyo-pane {
-  background-image: url(../images/bg-middle.png), url(../images/bg-middle.png);
-  background-repeat: no-repeat, no-repeat;
-  background-position: left top, left bottom;
-  background-size: contain, contain;  
+  background-image: url(../images/bg-middle.png);
+  background-repeat: repeat-y;
+  background-position: left top;
+  background-size: contain;  
 }
 
 .enyo-dialog.topdown {

@@ -7,8 +7,9 @@ enyo.kind({
 		{kind: "WebService", name:"zhephreeAPI", url:"http://accounts.zhephree.com/api.php",onSuccess:"zAPISuccess", onFailure: "zAPIFailure"},
 		{kind: "WebService", name:"woodenrowsAPI", url:"http://woodenro.ws/api.php",onSuccess:"wAPISuccess", onFailure: "wAPIFailure"},
 		{kind: "WebService", name:"reverseGeocode", url:"http://maps.googleapis.com/maps/api/geocode/json"},
-		{name: "facebookPost", kind: "WebService", url: "https://graph.facebook.com/OBJECT_ID/feed",method:"POST",onSuccess: "facebookSuccess",onFailure: "errorHandler"},
+		{name: "facebookPost", kind: "WebService", url: "https://graph.facebook.com/OBJECT_ID/feed",method:"POST",onSuccess: "facebookSuccess",onFailure: "facebookFailure"},
 		{name: "pickContact", kind: "com.palm.library.contactsui.peoplePicker",onContactClick:"contactClicked"},
+		{name: "pgPickContact", kind:"pgPeoplePicker", onComplete: "contactClicked"},
 		{kind: "Menu", name: "sortItemsMenu", onBeforeOpen:"",components: [
 			{caption:"Added ▲", onclick:"sortItems", by:"added"},
 			{caption:"Added ▼", onclick:"sortItems", by:"addedD"},
@@ -19,9 +20,15 @@ enyo.kind({
 			{caption:"Year ▲", onclick:"sortItems", by:"year"},
 			{caption:"Year ▼", onclick:"sortItems", by:"yearD"},
 		]},		
+		{kind: "Menu", name: "cellHoldMenu", components: [
+			{caption: "Add to Shelf", onclick:"addToShelf"},
+			{caption: "Remove from Library", onclick:""}
+		]},
 		{kind: "Menu", name: "shareMenu", onBeforeOpen:"",components: [
 			{caption:"Twitter", onclick:"openShare", by:"twitter"},
 			{caption:"Facebook", onclick:"openShare", by:"facebook"},
+			{caption:"E-mail",onclick: "openShare", by:"email"},
+			{caption:"Copy URL", onclick:"openShare",by:"clipboard"}
 			/*{caption:"Google+", onclick:"openShare", by:"google"},*/
 		]},		
 		{kind: "AppMenu", name:"theMenu", onOpen:"setUpFBMenu", components: [
@@ -33,7 +40,8 @@ enyo.kind({
 		{kind: "PageHeader", className:"shelf-header", components: [
 			{flex:1, components: [
 				{kind: "Image", src:"images/logo.png", width: "230px", height:"38px"}
-			]}
+			]}/*,
+			{kind:"Button", caption:"Shelf", style:"background-color:transparent; color: #4a4a4a;"}*/
 		]},
 		{flex: 1, kind: "Pane", components: [
 			{flex: 1, kind: "VirtualList", onSetupRow:"getItems",className:"itemList", name:"itemList",autoVertical:true, horizontal:false, components: [
@@ -158,6 +166,14 @@ enyo.kind({
 			{kind: "Button", caption: "Remove Comment", onclick:"removeComment", dialog:"commentDialog", className:"enyo-button-negative"},
 			{kind: "Button", caption: "Cancel", onclick:"closeDialog", dialog:"commentDialog"}
 		]},
+		{kind: "ModalDialog", name:"lendDialog", scrim:true, caption: "Lend This Item", width: "600px",onOpen:"lendOpened",components:[
+	        	{kind:"RowGroup", caption:"", components:[
+	        		{kind:"Input",name:"lendInput", oninput:"", hint:"Type the name of the person you lent this to..."},
+	        	]},
+			/*{kind:"HtmlContent", name:"tweetPreview"},*/
+			{kind: "Button", name:"saveLend", caption: "Lend", onclick:"saveLend", dialog:"lendDialog"},
+			{kind: "Button", caption: "Cancel", onclick:"closeDialog", dialog:"lendDialog"}
+		]},
 	    {kind: "Toaster", name:"signinDialog", width:"600px",lazy:false,className: "enyo-dialog topdown", flyInFrom: "top", autoClose:false, modal:true, dismissWithClick:false,dismissWithEscape:false,onOpen:'fixPrivacyLinks',components: [
 	        {kind:"HtmlContent",content: "Welcome to Wooden Rows! To get things started, you'll have to sign up for a Zhephree account. A Zhephree Account is free and quick to set up. This will allow you to store your library in the cloud so you can access it anywhere in the world. It'll also allow you to easily sign in to other Zhephree apps.", style: "font-size: 14px;"},
 	        {layoutKind: "HFlexLayout", pack: "center", components: [
@@ -224,7 +240,7 @@ enyo.kind({
 	         		password:calcMD5(this.$.signupPassword.getValue()),
 	         		email:this.$.signupEmail.getValue()};
 		
-		this.log(data);
+		//this.log(data);
 		
 		this.$.zhephreeAPI.setMethod("POST");
 		this.$.zhephreeAPI.call(data);
@@ -258,7 +274,7 @@ enyo.kind({
 			case 200:
 				switch(inResponse.method){
 					case "user.create":
-						this.log("create ok");
+						//this.log("create ok");
 						this.$.zhephreeAPI.setMethod("GET");
 						var data={
 							method:"user.getToken",
@@ -271,8 +287,8 @@ enyo.kind({
 					case "user.getToken":
 						var token=inResponse.result.token;
 						var user=inResponse.result.user;
-						this.log(token);
-						this.log(user);
+						//this.log(token);
+						//this.log(user);
 						this.saveSetting("token",token);
 						this.saveSetting("user",user.id);
 						this.userToken=token;
@@ -301,8 +317,8 @@ enyo.kind({
 	},
 	wAPISuccess: function(inSender,inResponse,inRequest){
 		//inResponse=enyo.json.parse(inResponse);
-		this.log("success");
-		this.log(inResponse);
+		//this.log("success");
+		//this.log(inResponse);
 		switch(inResponse.code){
 			case 500:
 			case 404:
@@ -314,7 +330,7 @@ enyo.kind({
 			case 200:
 				switch(inResponse.method){
 					case "user.getLibrary":
-						this.log("got ok");
+						//this.log("got ok");
 						var user=inResponse.result.user;
 						this.saveSetting("user",inResponse.result.user.id);
 						var d=new Date();
@@ -332,10 +348,13 @@ enyo.kind({
 							if(this.localLoaded){
 								if(this.serverLibrary.count==0){
 									//no items on the server.
-									if(this.data.length>0){ //but we have items stored locally
+									this.$.emptyLibrary.setContent("Your library is looking a little bare!<br>Try adding some items by tapping the \"+Add\" button in the corner.");
+									this.$.emptyLibrary.show();
+									
+									if(this.data.length>0 && this.data[0].placeholder!=true){ //but we have items stored locally
 										var items=enyo.json.stringify(this.data);
-										this.log("gonna bulk upload");
-										this.log(items);
+										//this.log("gonna bulk upload");
+										//this.log(items);
 										var token=this.userToken;
 										var data={
 											method: "library.bulkAddItems",
@@ -352,14 +371,14 @@ enyo.kind({
 								}
 							}else{
 								if(this.serverLibrary.count>0 && this.data[0].placeholder==true){
-									this.log("server load success; forcing localload=true");
+									//this.log("server load success; forcing localload=true");
 									//this.localLoaded=true;
 								}
 								this.checkLocalLibrary();
 							}
 							
 						}else{ //some options were set on this getLibrary
-							this.log("OPTION CALL RECEIVED");
+							//this.log("OPTION CALL RECEIVED");
 							
 							if(inResponse.result.options.status=="not-existing"){
 								this.prevStatus="not-existing";
@@ -368,36 +387,36 @@ enyo.kind({
 								this.asyncCount=this.citems.length;
 								this.asyncOn=0;
 								this.fromSync=true;
-								this.log("1");
+								//this.log("1");
 								this.db.transaction( 
 							        enyo.bind(this,(function (transaction) { 
-							        	this.log("2");			
+							        	//this.log("2");			
 										for(var i=0;i<this.ccount;i++){
-											this.log("3");
+											//this.log("3");
 											var item=this.citems[i];
-											this.log("4");
+											//this.log("4");
 											switch(item.status){
 												case "0": //existing
 													break;
 												case "1": //added
-													this.log("added item");
-													this.log(item);
-													var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort) VALUES ("'+item.artist+'", "'+item.asin+'", "'+item.author+'", "'+item.binding+'", "'+item.director+'", "'+item.image+'", "'+item.platform+'", "'+item.price+'", "'+item.publisher+'", "'+item.title+'", "'+item.upc+'", "'+item.year+'","'+item.extra+'","'+item.type+'","'+item.title_sort+'")';
-													this.log("4.3");
-													this.log(sql);
+													//this.log("added item");
+													//this.log(item);
+													var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort,shelves) VALUES ("'+item.artist+'", "'+item.asin+'", "'+item.author+'", "'+item.binding+'", "'+item.director+'", "'+item.image+'", "'+item.platform+'", "'+item.price+'", "'+item.publisher+'", "'+item.title+'", "'+item.upc+'", "'+item.year+'","'+item.extra+'","'+item.type+'","'+item.title_sort+'","'+item.shelves+'")';
+													//this.log("4.3");
+													//this.log(sql);
 										            transaction.executeSql(sql, [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler)); 
-													this.log("4.5");
+													//this.log("4.5");
 													break;
 												case "2": //modified
 													break;
 												case "3": //deleted
 													break;
 												default:
-													this.log("no status");
-													this.log(item);
+													//this.log("no status");
+													//this.log(item);
 													break;
 											}
-											this.log("5");
+											//this.log("5");
 										}
 							        })) 
 							    );		
@@ -409,37 +428,42 @@ enyo.kind({
 						//this.loadLibrary();				
 						break;
 					case "library.bulkAddItems":
-						this.log("bulk add ok");
-						this.log(inResponse.result.message);
-						this.log(inResponse.result.sql);
+						//this.log("bulk add ok");
+						//this.log(inResponse.result.message);
+						//this.log(inResponse.result.sql);
 						this.$.syncSpinner.hide();
 						
 						break;
 					case "library.addItem":
-						this.log(inResponse.result.message);
-						this.log(inResponse.result.itemId);
+						//this.log(inResponse.result.message);
+						//this.log(inResponse.result.itemId);
 						this.$.syncSpinner.hide();
+						break;
 					case "library.deleteItem":
-						this.log(inResponse.result.message);
+						//this.log(inResponse.result.message);
 						//this.log(inResponse.result.itemId);
 						this.$.syncSpinner.hide();
+						break;
 					case "library.lendItem":
-						this.log(inResponse.result.message);
+						//this.log(inResponse.result.message);
 						//this.log(inResponse.result.itemId);
 						this.$.syncSpinner.hide();
+						break;
 					case "library.returnItem":
-						this.log(inResponse.result.message);
+						//this.log(inResponse.result.message);
 						//this.log(inResponse.result.itemId);
 						this.$.syncSpinner.hide();
+						brreak;
 					case "library.saveComment":
-						this.log(inResponse.result.message);
+						//this.log(inResponse.result.message);
 						//this.log(inResponse.result.itemId);
 						this.$.syncSpinner.hide();
+						break;
 					case "library.resetStatuses":
-						this.log(inResponse.result.message);
+						//this.log(inResponse.result.message);
 						this.loadLibrary();
 						this.$.syncSpinner.hide();
-						
+						break;
 				}
 				break;
 		}
@@ -450,36 +474,36 @@ enyo.kind({
 		
 	},
 	checkLocalLibrary: function(){
-		this.log("checking load statuses...");
+		//this.log("checking load statuses...");
 		//this.log("local="+this.localLoaded);
 		if(this.localLoaded){
 			
 			this.loadCount++;
 		}
 		
-		this.log("1");
+		//this.log("1");
 		
 		if(this.localLoaded && this.loadCount==1){
 		    var sort=this.getSetting("sort");
-		    this.log("1.5");
+		    //this.log("1.5");
 		    if(sort!=undefined && sort!=""){
 		    	this.sortItems({by:sort});
-		    	this.log("1.6");
+		    	//this.log("1.6");
 		    }		
 		}
 		
-		this.log("2");
+		//this.log("2");
 
 		if(this.serverLibrary){
 			if(this.serverLibrary.count>0 && this.data[0].placeholder==true){
-				this.log("server load success; forcing localload=true");
+				//this.log("server load success; forcing localload=true");
 				//this.localLoaded=true;
 			}
 		}
 				
-		this.log("3");
+		//this.log("3");
 		if(this.localLoaded && this.serverLoaded){
-			this.log("both loaded");
+			//this.log("both loaded");
 			if(this.serverLibrary.count>0 && (this.data.length==0 || this.data[0].placeholder==true) && (this.searchQuery=="" || this.searchQuery==undefined)){ //no local data, but there's server data
 				enyo.windows.addBannerMessage("Syncing library...","{}");
 
@@ -499,24 +523,29 @@ enyo.kind({
 				this.log("finished loop");*/
 				this.$.syncSpinner.show();
 				enyo.asyncMethod(this,"insertArray",this.serverLibrary.items);
+			}else{
+				//this.$.emptyLibrary.setContent("Your library is looking a little bare!<br>Try adding some items by tapping the \"+Add\" button in the corner.");
+				//this.$.emptyLibrary.show();
+
 			}
 			
 			
 		}
 	},
 	insertArray: function(array,callback){
-		this.log("insert array...");
+		//this.log("insert array...");
 		this.strings=[];
 		this.asyncCount=array.length;
 		this.asyncOn=0;
 		this.asyncArray=array;
+		this.$.emptyLibrary.hide();
 		this.db.transaction( 
 	        enyo.bind(this,(function (transaction) { 			
-	        	this.log("before loop");
+	        	//this.log("before loop");
 				for(var a=0;a<this.asyncArray.length;a++){
-							            transaction.executeSql('INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort) VALUES ("'+this.asyncArray[a].artist+'", "'+this.asyncArray[a].asin+'", "'+this.asyncArray[a].author+'", "'+this.asyncArray[a].binding+'", "'+this.asyncArray[a].director+'", "'+this.asyncArray[a].image+'", "'+this.asyncArray[a].platform+'", "'+this.asyncArray[a].price+'", "'+this.asyncArray[a].publisher+'", "'+this.asyncArray[a].title+'", "'+this.asyncArray[a].upc+'", "'+this.asyncArray[a].year+'","","'+this.asyncArray[a].type+'","'+this.asyncArray[a].title_sort+'")', [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler)); 
+							            transaction.executeSql('INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort,shelves) VALUES ("'+this.asyncArray[a].artist+'", "'+this.asyncArray[a].asin+'", "'+this.asyncArray[a].author+'", "'+this.asyncArray[a].binding+'", "'+this.asyncArray[a].director+'", "'+this.asyncArray[a].image+'", "'+this.asyncArray[a].platform+'", "'+this.asyncArray[a].price+'", "'+this.asyncArray[a].publisher+'", "'+this.asyncArray[a].title+'", "'+this.asyncArray[a].upc+'", "'+this.asyncArray[a].year+'","","'+this.asyncArray[a].type+'","'+this.asyncArray[a].title_sort+'","'+this.asyncArray[a].shelves+'")', [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler)); 
 				}
-				this.log("after loop");
+				//this.log("after loop");
 	        })) 
 	    );
 	
@@ -524,9 +553,9 @@ enyo.kind({
 	},
 	libraryAsyncSuccess: function(transaction, results){
 		this.asyncOn++;
-		this.log("async success");
-		this.log(this.asyncOn);
-		this.log(this.asyncCount);
+		//this.log("async success");
+		//this.log(this.asyncOn);
+		//this.log(this.asyncCount);
 		if(this.asyncOn==this.asyncCount){
 			if(!this.fromSync){
 				this.loadLibrary();
@@ -595,7 +624,7 @@ enyo.kind({
 				this.$.emptyLibrary.hide()
 				for (var i = 0; i < results.rows.length; i++) {
 					var row = results.rows.item(i);
-					row.extra=row.extra.replace(/\&nbsp\;/g,'"');
+					row.extra=row.extra.replace(/\&quot\;/g,'"');
 					
 					if(!this.inArray(this.types,row.type) && !this.isFiltering && !this.isSorting){
 						this.types.push(row.type);
@@ -613,7 +642,7 @@ enyo.kind({
 
 				}
 				this.isSorting=false;
-				this.log(this.types);
+				//this.log(this.types);
 				
 				if(this.setCurrent){
 					this.currentItem=this.data[this.currentIndex];
@@ -621,21 +650,21 @@ enyo.kind({
 					this.currentItem=undefined;
 				}
 				
-				this.log(this.data);
-				this.log("querydata handler set localloaded=true");
+				//this.log(this.data);
+				//this.log("querydata handler set localloaded=true");
 				this.localLoaded=true;
 				
 				//see if we should bulk upload
 				if(this.serverLoaded){
-					this.log("1");
+					//this.log("1");
 					if(this.serverLibrary.count==0){
-					this.log("2");
+					//this.log("2");
 						//no items on the server.
 						if(this.data.length>0){ //but we have items stored locally
-						this.log("3");
+						//this.log("3");
 							var items=enyo.json.stringify(this.data);
-							this.log("gonna bulk upload");
-							this.log(items);
+							//this.log("gonna bulk upload");
+							//this.log(items);
 							var token=this.userToken;
 							var data={
 								method: "library.bulkAddItems",
@@ -648,19 +677,19 @@ enyo.kind({
 							this.$.woodenrowsAPI.call(data);
 						}
 					}else{ //stuff on server
-						this.log("local loaded; server has stuff");
+						//this.log("local loaded; server has stuff");
 						this.checkLocalLibrary();
 					}
 				}else{
-				this.log("4");
+				//this.log("4");
 					this.checkLocalLibrary();	
 				}
-				this.log("5");
+				//this.log("5");
 				
 				this.buildItemCells();
-				this.log("6");
+				//this.log("6");
 				this.$.itemList.punt();
-				this.log("7");
+				//this.log("7");
 			}
 		}catch(e){
 			console.log("errror");
@@ -727,8 +756,8 @@ enyo.kind({
 			//console.log("creating table");
 			this.nullHandleCount = 0;
 			
-			var string = 'CREATE TABLE IF NOT EXISTS library (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asin TEXT NOT NULL, author TEXT, binding TEXT, director TEXT, image TEXT, platform TEXT, price TEXT, publisher TEXT, title TEXT, upc TEXT, year INTEGER, type TEXT, extra TEXT, lent INTEGER, lentTo TEXT, lentOn INTEGER, title_sort TEXT)';
-			this.log("create table");
+			var string = 'CREATE TABLE IF NOT EXISTS library (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asin TEXT NOT NULL, author TEXT, binding TEXT, director TEXT, image TEXT, platform TEXT, price TEXT, publisher TEXT, title TEXT, upc TEXT, year INTEGER, type TEXT, extra TEXT, lent INTEGER, lentTo TEXT, lentOn INTEGER, title_sort TEXT, shelves TEXT)';
+			//this.log("create table");
 		    this.db.transaction( 
 		        enyo.bind(this,(function (transaction) { 
 					//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
@@ -785,6 +814,7 @@ enyo.kind({
 		if(this.platform=="webos"){
 		    this.region=enyo.g11n.currentLocale().region.toUpperCase();    
 		}else{		
+			//this.$.detailLendButton.hide(); //disable until this doesn't suck
 	    	navigator.geolocation.getCurrentPosition(function(position){
 	    		enyo.xhrGet({
 	    			url: "http://maps.googleapis.com/maps/api/geocode/json?latlng="+position.latitude+","+position.longitude+"&sensor=true",
@@ -817,7 +847,7 @@ enyo.kind({
 	    	this.apiUrl=LOCALES["US"];
 	    }
 	    
-	    this.log(this.apiUrl);
+	    //this.log(this.apiUrl);
 	    
 	    
 	    
@@ -883,17 +913,17 @@ enyo.kind({
 	    //this.log(enyo.getCookie("user"));
 	},
 	setUpFBMenu: function(){
-		this.log("opening menu");
+		//this.log("opening menu");
 	    var cookie=this.getSetting("fbActivity");
-	    this.log(this.fbActivity);
+	    //this.log(this.fbActivity);
 	    if(cookie=="1"){
-	 		this.log("activity=true");
+	 		//this.log("activity=true");
 	    	this.fbActivity=true;
-	    	this.log(this.$.fbActivityMenu.getCaption());
+	    	//this.log(this.$.fbActivityMenu.getCaption());
 	    	this.$.fbActivityMenu.setCaption("Don't Share Activity on Facebook");	    
 	    	//this.$.appMenu.createComponent({caption: "Don't Share Activity on Facebook", onclick: "toggleFBSharing", name:"fbActivityMenu"},{owner:this});
 	    }else{
-	    	this.log("activity=false");
+	    	//this.log("activity=false");
 	    	this.fbActivity=false;
 	    	this.$.fbActivityMenu.setCaption("Share Activity on Facebook");
 	    	//this.$.appMenu.createComponent({caption: "Share Activity on Facebook", onclick: "toggleFBSharing", name:"fbActivityMenu"}, {owner:this});
@@ -965,7 +995,7 @@ enyo.kind({
 		
 				
 		var mytext = 'select * from library'+where+orderby;
-		this.log(mytext);
+		//this.log(mytext);
 		this.setCurrent=setCurrent;
 	    this.db.transaction( 
 	        enyo.bind(this,(function (transaction) { 
@@ -1025,7 +1055,7 @@ enyo.kind({
 		this.$.itemCells.destroyControls();
 		this.cells = [];
 		for (var i=0; i<this.cellCount; i++) {
-			var c = this.$.itemCells.createComponent({flex: 1, kind: "VFlexBox", pack: "center", align: "center", style: "padding: 8px;", owner: this, idx: i, onclick: "cellClick"});
+			var c = this.$.itemCells.createComponent({flex: 1, kind: "VFlexBox", pack: "center", align: "center", style: "padding: 8px;", owner: this, idx: i, onclick: "cellClick", onmousehold:"cellHold"});
 			c.createComponent({kind: "HtmlContent", className:"itemTitle",name: "itemTitle"});
 			c.createComponent({flex:1});
 			var w=c.createComponent({kind:"HtmlContent", name:"imageWrapper", className: "imageWrapper"});
@@ -1202,21 +1232,30 @@ enyo.kind({
 	},  
   cellClick: function(inSender, inEvent){
   	var idx = inEvent.rowIndex * this.cellCount + inSender.idx;
-  	this.log(this.data[idx]);
+  	//this.log(this.data[idx]);
   	var item=this.data[idx];
   	this.currentItem=item;
   	this.currentIndex=idx;
   	this.currentElement=inSender;
-  	this.log(inSender);
-  	this.log(this.currentElement);
+  	//this.log(inSender);
+  	//this.log(this.currentElement);
   	
   	this.displayItem(item);
   },
+  cellHold: function(inSender, inEvent){
+  	var idx = inEvent.rowIndex * this.cellCount + inSender.idx;
+  	var item=this.data[idx];
+  	this.currentHoldItem=item;
+  	this.currentHoldIndex=idx;
+  	this.currentHoldElement=inSender;
+  	
+  	
+  },
   displayItem: function(item){
   	var item=(item)? item: this.data[this.currentIndex];
-	  this.log(item);
+	  //this.log(item);
   	
-  	this.$.detailItemName.setContent(item.title);
+  	this.$.detailItemName.setContent(item.title.replace(/\\'/g,"'"));
   	var creator=item.author || item.artist || item.director || item.publisher || "Unknown";
   	
   	this.$.detailItemCreator.setContent(creator);
@@ -1244,10 +1283,10 @@ enyo.kind({
 	//make a call for more data
   	var url=this.apiUrl+"?Service=AWSECommerceService&Operation=ItemLookup&AssociateTag=frobba-20&ResponseGroup=Large";
   	url+="&ItemId="+item.asin;
-  	this.log(url);
+  	//this.log(url);
   	
   	var signedUrl=invokeRequest(url);
-  	this.log("signed=",signedUrl);
+  	//this.log("signed=",signedUrl);
   	this.$.awsItem.setUrl(signedUrl);
   	this.$.awsItem.call();
 	
@@ -1498,8 +1537,8 @@ enyo.kind({
 	when=when.getTime();
 
 	var string = 'UPDATE library SET lent="0", lentOn="'+when+'" WHERE id="'+this.currentItem.id+'"';
-	this.log(string);
-	this.log("update table");
+	//this.log(string);
+	//this.log("update table");
 	this.db.transaction( 
 		enyo.bind(this,(function (transaction) { 
 			//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
@@ -1523,14 +1562,14 @@ enyo.kind({
   },
   itemReturnedOK: function(){
 	this.loadLibrary(true);
-      this.log(this.currentItem);
+      //this.log(this.currentItem);
 		this.$.detailLendButton.show();
 		this.$.detailReturnButton.hide();
 	  enyo.windows.addBannerMessage("Woohoo! Got your stuff back!","{}");
 
   },
   removeItem: function(inSender, inEvent){
-  	this.log("showing dialog...");
+  	//this.log("showing dialog...");
         this.showConfirmDialog("Are you sure you want to remove <i>"+this.currentItem.title+"</i> from your library? This cannot be undone.","doRemoveItem");  	
   },
   doRemoveItem: function(){
@@ -1538,8 +1577,8 @@ enyo.kind({
     this.$.itemDetail.close();
 
 	var string = 'DELETE FROM library WHERE id="'+this.currentItem.id+'"';
-	this.log(string);
-	this.log("update table");
+	//this.log(string);
+	//this.log("update table");
 	this.db.transaction( 
 		enyo.bind(this,(function (transaction) { 
 			//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
@@ -1571,13 +1610,18 @@ enyo.kind({
   },
   removeAniDone: function(){
 	this.loadLibrary(true);
-      this.log(this.currentItem);
+      //this.log(this.currentItem);
 	  enyo.windows.addBannerMessage("Ohh, that was a nice i-- DELETED!!","{}");
     this.iw.removeEventListener('webkitTransitionEnd',this.removeDone,false);
   },
  
   lendItem: function(inSender,inEvent){
+  	if(this.platform=="webos"){
 	  this.$.pickContact.pickPerson();
+	}else{
+		//this.$.pgPickContact.openPeoplePicker();
+		this.$.lendDialog.openAtCenter();
+	}
   },
   updateExtra: function(newProps){
   	var extra=this.currentItem.extra;
@@ -1591,8 +1635,11 @@ enyo.kind({
   	this.currentItem.extra=enyo.json.stringify(extra);
   },
   contactClicked: function(a,b){
-  	this.log(a);
-  	this.log(b);
+  	//this.log(a);
+  	//this.log(b);
+  	if(a.name){
+  		var b=a;
+  	}
   	
   	var lname=b.name.familyName;
   	var fname=b.name.givenName;
@@ -1600,10 +1647,17 @@ enyo.kind({
   	
   	this.selectedContact=name;
   	
-  	this.log(name);
+  	//this.log(name);
   	this.$.pickContact.close();
+  	this.$.pgPickContact.closePeoplePicker();
 	
 	this.showConfirmDialog("Are you sure you want to lend <i>"+this.currentItem.title+"</i> to <b>"+name+"</b>?","lendItemToContact");
+  },
+  saveLend: function(inSender, inEvent){
+  	this.selectedContact=this.$.lendInput.getValue();
+  	this.$.lendDialog.close();
+	this.showConfirmDialog("Are you sure you want to lend <i>"+this.currentItem.title+"</i> to <b>"+this.selectedContact+"</b>?","lendItemToContact");
+  	
   },
   lendItemToContact: function(a,b){
   	this.$.confirmDialog.close();
@@ -1614,8 +1668,8 @@ enyo.kind({
 	var name=this.selectedContact;
  
 	var string = 'UPDATE library SET lent="1", lentTo="'+name+'", lentOn="'+when+'" WHERE id="'+this.currentItem.id+'"';
-	this.log(string);
-	this.log("update table");
+	//this.log(string);
+	//this.log("update table");
 	this.db.transaction( 
 		enyo.bind(this,(function (transaction) { 
 			//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
@@ -1641,7 +1695,7 @@ enyo.kind({
   itemLentOK: function(){
 
 	this.loadLibrary(true);
-      this.log(this.currentItem);
+      //this.log(this.currentItem);
 		this.$.detailLendButton.hide();
 		this.$.detailReturnButton.show();
 	  enyo.windows.addBannerMessage("Alrighty! Item has been lent out!","{}");
@@ -1658,8 +1712,8 @@ enyo.kind({
   		//enyo.setObject("currentItem.extra",comment,this);
 //  		enyo.setObject("data)
   		
-  		this.log(this.currentItem);
-  		this.log(this.data[this.currentIndex]);
+  		//this.log(this.currentItem);
+  		//this.log(this.data[this.currentIndex]);
 		var string = 'UPDATE library SET extra="'+this.sqlEscape(comment)+'" WHERE id="'+this.currentItem.id+'"';
 		this.db.transaction( 
 			enyo.bind(this,(function (transaction) { 
@@ -1685,8 +1739,8 @@ enyo.kind({
   	}
   },
   removeComment: function(inSender,inEvent){
-  		this.log(this.currentItem);
-  		this.log(this.data[this.currentIndex]);
+  		//this.log(this.currentItem);
+  		//this.log(this.data[this.currentIndex]);
   		
   		var comment='';
 		var string = 'UPDATE library SET extra="'+this.sqlEscape(comment)+'" WHERE id="'+this.currentItem.id+'"';
@@ -1754,10 +1808,10 @@ enyo.kind({
   	url+="&Keywords="+encodeURIComponent(kw);
   	
   	url=url.replace(/'/g," ");
-  	this.log(url);
+  	//this.log(url);
   	
   	var signedUrl=invokeRequest(url);
-  	this.log("signed=",signedUrl);
+  	//this.log("signed=",signedUrl);
 
   	this.searchResults=[];
   	this.doingSearch=true;
@@ -1771,22 +1825,24 @@ enyo.kind({
   },
   resetSearch: function(inSender, inEvent){
   	this.$.librarySearch.setValue('');
+  	window.setTimeout(enyo.bind(this,function(){this.$.librarySearch.forceBlur();}),500);
   	this.searchQuery='';
   	this.loadLibrary();
   	this.doingSearch=false;
-  	this.gettingPage=false;
+  	this.gettingPage=false;  	
   },
   awsSearchSuccess: function(inSender,inResponse,inRequest){
   	this.$.addItemSearch.setActive(false);
-  	enyo.keyboard.setManualMode(true);
-  	enyo.keyboard.hide();
+  	//enyo.keyboard.setManualMode(true);
+  	//enyo.keyboard.hide();
+  	window.setTimeout(enyo.bind(this,function(){this.$.addItemInput.forceBlur();}),500);
 
-  	this.log(inResponse);
+  	//this.log(inResponse);
   	var parser=new DOMParser();
   	var xml=parser.parseFromString(inResponse,"text/xml");
   	
   	var items=xml.getElementsByTagName("Item");
-  	this.log("found "+items.length+" items");
+  	//this.log("found "+items.length+" items");
   	
 
   	var itemCount=items.length;
@@ -1893,7 +1949,7 @@ enyo.kind({
   		
   	}
   	
-  	this.log(this.searchResults);
+  	//this.log(this.searchResults);
   	
   	if(this.doingSearch){
 	  	this.$.resultsList.punt();
@@ -1914,10 +1970,10 @@ enyo.kind({
 	  	var kw=this.$.addItemInput.getValue().replace(/\-/g,"");
 	  	url+="&Keywords="+encodeURIComponent(kw);
 	  	url+="&ItemPage="+inPage;
-	  	this.log(url);
+	  	//this.log(url);
 	  	
 	  	var signedUrl=invokeRequest(url);
-	  	this.log("signed=",signedUrl);
+	  	//this.log("signed=",signedUrl);
 	
 	  	this.doingSearch=false;
 	  	
@@ -1926,14 +1982,14 @@ enyo.kind({
 	}
   },
   getResult: function(inSender,inIndex){
-  	this.log(inIndex);
+  	//this.log(inIndex);
   	var row=this.searchResults[inIndex];
   	
   	if(row){
 	  	this.$.resultsItemImage.setSrc(row.image);
   		this.$.resultsItemName.setContent(row.title);
   		
-  		this.log(row);
+  		//this.log(row);
   	
   		if(row.year){
   			if(row.year.indexOf("-")>-1){
@@ -1974,9 +2030,9 @@ enyo.kind({
   			extra.push(row.price);
   		}
   		
-  		this.log(extra);
+  		//this.log(extra);
   		var e=extra.join(" &#149; ");
-  		this.log(e);
+  		//this.log(e);
   		
 	  	this.$.resultsItemExtra.setContent(e);
 	  	return true;
@@ -2012,23 +2068,25 @@ enyo.kind({
   	this.log("~~~~~~~~~~~~~adding to db");
   	var row=this.searchResults[inEvent.rowIndex];
   	this.rowData=row;
-  	this.log(row);
+  	//this.log(row);
   	
   	//first, see if this is already in the library
   	var inLibrary=false;
   	var count=this.data.length;
   	for(var i=0;i<count;i++){
   		//this.log(this.data[i]);
-		if(row.upc==this.data[i].upc || row.asin==this.data[i].asin){
+		if((row.upc==this.data[i].upc && (row.upc!="" && this.data[i].upc!="" && row.upc!=undefined && this.data[i].upc!=undefined)) || row.asin==this.data[i].asin){
+			//this.log("same upc or asin");
 			inLibrary=true;
 			break;
 		}else{
 	  		if(row.title==this.data[i].title && this.searchType==this.data[i].type){
+	  			//this.log("same title and same type");
 	  			inLibrary=true;
 				var creator1=this.getCreator(row);
 				var creator2=this.getCreator(this.data[i]);
-				this.log("1="+creator1);
-				this.log("2="+creator2);
+				//this.log("1="+creator1);
+				//this.log("2="+creator2);
 				if(creator1!=creator2){
 					inLibrary=false;
 				}else{
@@ -2036,6 +2094,9 @@ enyo.kind({
 		  		}
 	  		}
 	  	}
+	  	//this.log("the items:");
+	  	//this.log(row);
+	  	//this.log(this.data[i]);
   	}
   	
   	if(!inLibrary){
@@ -2102,15 +2163,16 @@ enyo.kind({
 				lentOn: null,
 				title_sort: title_sort
 			};
-			this.log(data);
+			//this.log(data);
 			this.$.woodenrowsAPI.setMethod("POST");
 			this.$.woodenrowsAPI.call(data);
 		}
 		
 	  	
-	  	var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort) VALUES ("'+artist+'", "'+asin+'", "'+author+'", "'+binding+'", "'+director+'", "'+image+'", "'+platform+'", "'+price+'", "'+publisher+'", "'+title+'", "'+upc+'", "'+year+'","","'+type+'","'+title_sort+'")';
+	  	var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort,shelves) VALUES ("'+artist+'", "'+asin+'", "'+author+'", "'+binding+'", "'+director+'", "'+image+'", "'+platform+'", "'+price+'", "'+publisher+'", "'+title+'", "'+upc+'", "'+year+'","","'+type+'","'+title_sort+'","")';
 	  	
-	  	this.log(sql);
+	  	//this.log(sql);
+		this.$.emptyLibrary.hide();
 	  	
 		this.db.transaction( 
 		    enyo.bind(this,(function (transaction) { 
@@ -2123,7 +2185,7 @@ enyo.kind({
 		var cookie=this.getSetting("fbActivity");
 
 		if(cookie=="1"){
-			this.log("posting to fb");
+			//this.log("posting to fb");
 			var itemUrl=encodeURIComponent("http://woodenro.ws/item/"+this.userId+"-"+asin);
 			var kind=this.typeToOGType(type);
 			var url="https://graph.facebook.com/me/zhephree-rows:add?access_token="+this.shares.facebook.token;
@@ -2135,12 +2197,12 @@ enyo.kind({
 			data[kind]=itemUrl;
 			data["scrape"]="true";
 			
-			this.log(data);
+			//this.log(data);
 			
 			this.$.facebookPost.call(data);
 		
 		}else{
-			this.log("not posting to fb");
+			//this.log("not posting to fb");
 		}
   },
   shareItem: function(inSender,inEvent){
@@ -2167,6 +2229,12 @@ enyo.kind({
   				this.showConfirmDialog("You do not currently have your Facebook account linked to Wooden Rows. Would you like to visit the Wooden Rows website and do this now?","linkNetwork");
   			}
   			break;
+  		case "email":
+  			this.dialog="email";
+  			break;
+  		case "clipboard":
+  			this.dialog="clipboard";
+  			break;
   	}
   	
   	if(ok){
@@ -2185,11 +2253,28 @@ enyo.kind({
   linkSuccess: function(inResponse,inRequest){
 	this.shareURL=enyo.string.trim(inResponse);
 	this.$.syncSpinner.hide();
-    this.openDialog({dialog:this.dialog});
+	switch(this.dialog){
+		case "clipboard":
+			enyo.dom.setClipboard(this.shareURL);
+			enyo.windows.addBannerMessage("URL Copied to Clipboard","{}");  
+			break;
+		case "email":
+			this.goToLink({target:{href:"mailto:?body="+encodeURIComponent("Check out "+this.currentItem.title.replace(/\\'/g,"'")+" in my library on Wooden Rows! "+this.shareURL)}});
+			break;
+		default:
+		    this.openDialog({dialog:this.dialog});
+    		break;
+	}
 
   },
   linkNetwork: function(){
-  	window.open("http://woodenro.ws/sharing.php");
+  	if(this.fbfailed){
+  		var query="?reauthfb=true";
+  		this.fbfailed=false;
+  	}else{
+  		var query='';
+  	}
+  	window.open("http://woodenro.ws/login.php?token="+this.userToken+"&continue="+encodeURIComponent("/sharing.php"+query));
   },
   
   shareOpened: function(inSender,inEvent){
@@ -2227,13 +2312,25 @@ enyo.kind({
   	
   },
   facebookSuccess: function(inSender,inResponse,inRequest){
-  	this.log("facebook success");
-  	this.log(inResponse);
+  	//this.log("facebook success");
+  	//this.log(inResponse);
   	this.closeDialog({dialog:"facebookDialog"});
-	enyo.windows.addBannerMessage("Item shared on Facebook!","{}");  	  
+	enyo.windows.addBannerMessage("Item shared on Facebook!","{}");  
+	this.fbfailed=false;	  
+  },
+  facebookFailure: function(inSender,inResponse,inRequest){
+  	var j=(inResponse);
+  	if(j.error){
+  		if(j.error.type=="OAuthException"){
+  			this.fbfailed=true;
+  			//the token expired. ask facebook to revitalize it
+  			this.showConfirmDialog("Your Facebook authorization has expired. You will need to reauthorize Wooden Rows to work with Facebook. Would you like to visit the Wooden Rows website and do this now?","linkNetwork");
+  			
+  		}
+  	}
   },
   twitterOpened: function(inSender,inEvent){
-  		var base="Check out "+this.currentItem.title+" in my library! "+this.shareURL;
+  		var base="Check out "+this.currentItem.title.replace(/\\'/g,"'")+" in my library! "+this.shareURL;
   		if(base.length>140){
   			base=base.replace("in my library! ","");
   		}
@@ -2255,7 +2352,7 @@ enyo.kind({
   tweetChanged: function(inSender,inEvent){
   	var text=inSender.getValue();
   	if(!text){
-  		var base="Check out "+this.currentItem.title+" in my library! "+this.shareURL;
+  		var base="Check out "+this.currentItem.title.replace(/\\'/g,"'")+" in my library! "+this.shareURL;
   		if(base.length>140){
   			base=base.replace("in my library! ","");
   		}
@@ -2270,7 +2367,7 @@ enyo.kind({
   		
   		this.tweet=base;
   	}else{
-  		var tweet=text+" | "+this.currentItem.title+" "+this.shareURL;
+  		var tweet=text+" | "+this.currentItem.title.replace(/\\'/g,"'")+" "+this.shareURL;
   		if(tweet.length>140){
   			tweet=text+" "+this.shareURL;
   		}
@@ -2296,7 +2393,7 @@ enyo.kind({
 		'accessTokenUrl':'https://api.twitter.com/oauth/access_token',
 	});
 	
-	this.log(oauth);
+	//this.log(oauth);
 	
 	oauth.setAccessToken([this.shares.twitter.token,this.shares.twitter.secret]);  
 	var tweetData={status: this.tweet};
@@ -2322,7 +2419,7 @@ enyo.kind({
   	this.saveSetting("sort",this.sortBy);
   	
   	var cap=this.sortBy.charAt(0).toUpperCase() + this.sortBy.slice(1)
-  	this.log(cap);
+  	//this.log(cap);
   	if(cap.substr(cap.length-1)=="D"){
   		cap=cap.substr(0,cap.length-1);
   		cap=cap+"▼";
@@ -2360,7 +2457,7 @@ enyo.kind({
   	this.$.filterItemsMenu.openAtControl(inSender,{top:-45});
   },
   filterItems: function(inSender,inEvent){
-  	this.log(inSender.by);
+  	//this.log(inSender.by);
 	switch(inSender.by){
 		case "Video Games":
 			t="VideoGames";
@@ -2414,6 +2511,9 @@ enyo.kind({
 	}
   },
   openDialog: function(inSender){
+  	if(inSender.dialog=="addItemDialog"){
+  			this.$.emptyLibrary.hide();
+  	}
   	var p=this.$[inSender.dialog];
   	if(p){
   		p.openAtCenter();
