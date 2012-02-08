@@ -135,6 +135,18 @@ enyo.kind({
 	            {kind: "Button", caption: "OK", name: 'errorDialogOK', onclick: "closeDialog", dialog:'errorDialog', className: "enyo-button-primary"},
 	        ]}
 	    ]},
+	    {kind: "Toaster", name: "androidMenu", lazy:false,className:'zheph-android-menu', flyInFrom:"bottom", onOpen:"fadeAndroidMenuIn",onClose:"fadeAndroidMenuOut",components:[
+	    	{layoutKind: "HFlexLayout", pack:"center",align:"stretch",components:[
+	    		{kind:"CustomButton",className:"zheph-android-menu-button", components:[
+	    			{kind:"Image", src:"images/menu_facebook.png"},
+	    			{kind:"HtmlContent",content:"Disable FB Activity"}
+	    		], onclick:""},
+	    		{kind:"CustomButton",className:"zheph-android-menu-button", components:[
+	    			{kind:"Image", src:"images/menu_facebook.png"},
+	    			{kind:"HtmlContent",content:"Edit Profile"}
+	    		],onclick:""}
+	    	]}
+	    ]},
 		{kind: "ModalDialog", name:"shareDialog", scrim:true, caption: "Share", width: "600px", height:"560px",onOpen:"shareOpened",components:[
 			{kind:"WebView", name:"shareWebView", height:"400px"},
 			{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"shareDialog"}
@@ -217,6 +229,12 @@ enyo.kind({
 		{kind:"HtmlContent",className:"emptyLibrary", name:"emptyLibrary"}
 		
 	],
+	fadeAndroidMenuIn: function(inSender,inEvent){
+		inSender.addClass("showing");
+	},
+	fadeAndroidMenuOut: function(inSender,inEvent){
+		inSender.removeClass("showing");
+	},
 	fixPrivacyLinks: function(firstTime) {
 		if(firstTime){
 			var goToLinkBound=enyo.bind(this,this.goToLink);
@@ -228,7 +246,17 @@ enyo.kind({
 	goToLink: function(e){
 		//e.preventDefault();
 		//window.open(e.target.href);
-		this.$.openApp.call({target: e.target.href},{method:"open"})
+		switch(this.platform){
+			case "webos":
+				this.$.openApp.call({target: e.target.href},{method:"open"})
+				break;
+			case "android":
+			case "web":
+				window.open(e.target.href);
+				break;
+			case "ios":
+				break;
+		}
 		//return false;
 	},
 	doSignUp: function(inSender, inEvent){
@@ -294,6 +322,10 @@ enyo.kind({
 						this.userToken=token;
 						this.userId=user.id;
 						this.apiInSender.setActive(false);
+					  	window.setTimeout(enyo.bind(this,function(){this.$.signupUsername.forceBlur();}),500);
+					  	window.setTimeout(enyo.bind(this,function(){this.$.signupPassword.forceBlur();}),500);
+					  	window.setTimeout(enyo.bind(this,function(){this.$.signupEmail.forceBlur();}),500);
+						
 						this.$.signinDialog.close();
 						
 						///LOAD LIBRARY FROM SERVER. If no items, do a bulk upload
@@ -600,6 +632,7 @@ enyo.kind({
 	},
 	queryDataHandler: function(transaction, results){
 		this.data=[];
+		this.shelves=[];
 		if(!this.isFiltering && !this.isSorting){
 			this.types=[];
 			this.platforms=[];
@@ -625,6 +658,15 @@ enyo.kind({
 				for (var i = 0; i < results.rows.length; i++) {
 					var row = results.rows.item(i);
 					row.extra=row.extra.replace(/\&quot\;/g,'"');
+					
+					if(row.shelves){
+						var shelves=row.shelves.split("|");
+						for(var s=0;s<shelves.length;s++){
+							if(!this.inArray(this.shelves,shelves[s])){
+								this.shelves.push(shelves[s]);
+							}
+						}
+					}
 					
 					if(!this.inArray(this.types,row.type) && !this.isFiltering && !this.isSorting){
 						this.types.push(row.type);
@@ -848,7 +890,11 @@ enyo.kind({
 	    }
 	    
 	    //this.log(this.apiUrl);
-	    
+	    switch(this.platform){
+	    	case "android":
+	    		document.addEventListener("menubutton", enyo.bind(this,this.onMenuButton), false);
+	    		break;
+	    }
 	    
 	    
 	    var token=this.getSetting("token");
@@ -911,6 +957,9 @@ enyo.kind({
 	    this.$.appMenu.render();
 	    
 	    //this.log(enyo.getCookie("user"));
+	},
+	onMenuButton: function(){
+		this.$.androidMenu.toggleOpen();
 	},
 	setUpFBMenu: function(){
 		//this.log("opening menu");
@@ -2255,8 +2304,18 @@ enyo.kind({
 	this.$.syncSpinner.hide();
 	switch(this.dialog){
 		case "clipboard":
-			enyo.dom.setClipboard(this.shareURL);
-			enyo.windows.addBannerMessage("URL Copied to Clipboard","{}");  
+			switch(this.platform){
+				case "webos":
+					enyo.dom.setClipboard(this.shareURL);
+					enyo.windows.addBannerMessage("URL Copied to Clipboard","{}");  
+					break;
+				case "android":
+					window.plugins.clipboardManager.copy(
+					    this.shareURL,
+					    function(r){alert("URL Copied to Clipboard")},
+					    function(e){alert(e)}
+					);					
+			}
 			break;
 		case "email":
 			this.goToLink({target:{href:"mailto:?body="+encodeURIComponent("Check out "+this.currentItem.title.replace(/\\'/g,"'")+" in my library on Wooden Rows! "+this.shareURL)}});
@@ -2422,7 +2481,7 @@ enyo.kind({
   	//this.log(cap);
   	if(cap.substr(cap.length-1)=="D"){
   		cap=cap.substr(0,cap.length-1);
-  		cap=cap+"▼";
+  		//cap=cap+"▼";
   	}
   	this.$.sortItemsButton.setCaption('Sort: '+cap);
   	this.loadLibrary();

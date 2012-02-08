@@ -225,6 +225,44 @@
 	-webkit-border-radius: 10px;
 }
 
+.zheph-android-menu {
+	background-color: rgba(0,0,0,0.8);
+	color: #fff;
+	border-top: 3px solid rgba(204,204,204,0.4);
+	width: 100%;
+	transition: opacity 1s;
+	-moz-transition: opacity 1s; /* Firefox 4 */
+	-webkit-transition: opacity 1s; /* Safari and Chrome */
+	-o-transition: opacity 1s; /* Opera */	
+	/*opacity: 0;*/
+}
+.zheph-android-menu.showing {
+/*	opacity: 0.8;*/
+}
+
+.zheph-android-menu-button {
+	text-align:center;
+	border-right: 1px solid #3f3f3f;
+	max-width: 150px;
+	font-size: 16px;
+	padding: 7px 10px;
+	transition: background-color 0.5s;
+	-moz-transition: background-color 0.5s; /* Firefox 4 */
+	-webkit-transition: background-color 0.5s; /* Safari and Chrome */
+	-o-transition: background-color 0.5s; /* Opera */	
+}
+.zheph-android-menu-button.enyo-button-down {
+	background-color: #007b9c;
+}
+
+.zheph-android-menu img {
+	width: 20px;
+	height: 20px;
+}
+
+
+
+
 
 /*PHONE SPECIFIC STUFF*/
 @media only screen and (max-device-width: 480px) {
