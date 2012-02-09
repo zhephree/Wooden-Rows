@@ -1847,7 +1847,7 @@ enyo.kind({
   },
   searchItems: function(inSender){
   	inSender.setActive(true);
-  	var url=this.apiUrl+"?Service=AWSECommerceService&Operation=ItemSearch&AssociateTag=frobba-20&ResponseGroup=Medium";
+  	/*var url=this.apiUrl+"?Service=AWSECommerceService&Operation=ItemSearch&AssociateTag=frobba-20&ResponseGroup=Medium";
   	var kw=this.$.addItemInput.getValue().replace(/\-/g,"");
 	if(this.isNumber(kw) && kw.length>3){
 		url+="&SearchIndex=All";
@@ -1860,13 +1860,23 @@ enyo.kind({
   	//this.log(url);
   	
   	var signedUrl=invokeRequest(url);
-  	//this.log("signed=",signedUrl);
+  	//this.log("signed=",signedUrl);*/
+
+  	var url="http://woodenro.ws/api.php?method=find&token="+this.userToken;
+  	var kw=this.$.addItemInput.getValue().replace(/\-/g,"");
+	if(this.isNumber(kw) && kw.length>3){
+		url+="&type=upc";
+	}else{
+	  	url+="&type="+this.searchType;
+	}
+	url+="&keyword="+encodeURIComponent(kw);
+  	
 
   	this.searchResults=[];
   	this.doingSearch=true;
   	this.gettingPage=false;
   	
-  	this.$.awsSearch.setUrl(signedUrl);
+  	this.$.awsSearch.setUrl(url);
   	this.$.awsSearch.call();
   },
   isNumber: function(n) {
@@ -1886,7 +1896,18 @@ enyo.kind({
   	//enyo.keyboard.hide();
   	window.setTimeout(enyo.bind(this,function(){this.$.addItemInput.forceBlur();}),500);
 
-  	//this.log(inResponse);
+  	this.log(inResponse);
+  	var j=inResponse;
+  	
+  	var items=j.result.results.items;
+  	var itemCount=items.length;
+  	
+  	if(itemCount>0){
+  		this.$.awsSearchStatus.hide();
+  		this.$.resultsList.show();
+  		this.searchResults=items;
+  	}
+/*  	
   	var parser=new DOMParser();
   	var xml=parser.parseFromString(inResponse,"text/xml");
   	
@@ -1996,7 +2017,7 @@ enyo.kind({
   		this.$.awsSearchStatus.show();
   		this.$.resultsList.hide();
   		
-  	}
+  	}*/
   	
   	//this.log(this.searchResults);
   	
@@ -2010,7 +2031,7 @@ enyo.kind({
   setupResults: function(inSender){
   },
   getPage: function(inSender,inPage){
-  
+  /*
   	var index=inPage*inSender.pageSize;
   	if(!this.searchResults[index]){
   		this.gettingPage=true;
@@ -2028,7 +2049,7 @@ enyo.kind({
 	  	
 	  	this.$.awsSearch.setUrl(signedUrl);
 	  	this.$.awsSearch.call();  
-	}
+	}*/
   },
   getResult: function(inSender,inIndex){
   	//this.log(inIndex);
