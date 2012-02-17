@@ -3,13 +3,32 @@ enyo.kind({
 	kind: enyo.VFlexBox,
 	components: [
 		{kind: "WebService", name:"awsSearch", url:"",onSuccess:"awsSearchSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"booksAPI", url:"http://openlibrary.org/search.json",onSuccess:"bookSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"booksAPIMatch", url:"http://openlibrary.org/search.json",onSuccess:"bookMatchSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"booksDetail", url:"http://openlibrary.org/api/books",onSuccess:"awsItemSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"gamesAPI", url:"http://thegamesdb.net/api/GetGame.php",onSuccess:"gamesSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"gamesAPIMatch", url:"http://thegamesdb.net/api/GetGame.php",onSuccess:"gamesMatchSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"gamesDetail", url:"http://thegamesdb.net/api/GetGame.php",onSuccess:"awsItemSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"moviesAPI", url:"http://api.remix.bestbuy.com/v1/products",onSuccess:"moviesSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"moviesAPIMatch", url:"http://api.remix.bestbuy.com/v1/products",onSuccess:"moviesMatchSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"moviesDetail", url:"http://api.remix.bestbuy.com/v1/products",onSuccess:"awsItemSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"musicAPI", url:"http://api.discogs.com/database/search",onSuccess:"musicSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"musicDetail", url:"http://api.discogs.com/database/releases",onSuccess:"awsItemSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"barcodeAPI", url:"http://www.searchupc.com/handlers/upcsearch.ashx",onSuccess:"barcodeSuccess", onFailure: "awsSearchFailure"},
 		{kind: "WebService", name:"awsItem", url:"",onSuccess:"awsItemSuccess", onFailure: "awsItemFailure"},
 		{kind: "WebService", name:"zhephreeAPI", url:"http://accounts.zhephree.com/api.php",onSuccess:"zAPISuccess", onFailure: "zAPIFailure"},
 		{kind: "WebService", name:"woodenrowsAPI", url:"http://woodenro.ws/api.php",onSuccess:"wAPISuccess", onFailure: "wAPIFailure"},
 		{kind: "WebService", name:"reverseGeocode", url:"http://maps.googleapis.com/maps/api/geocode/json"},
+	    {name: "downloadManager",kind: "PalmService",service: "palm://com.palm.downloadmanager",method: "upload", subscribe: true,
+
+		          onSuccess: "onUploadSuccess",
+		          onFailure: "onUploadFailure",
+		          onResponse: "onUploadResponse"
+		},
 		{name: "facebookPost", kind: "WebService", url: "https://graph.facebook.com/OBJECT_ID/feed",method:"POST",onSuccess: "facebookSuccess",onFailure: "facebookFailure"},
 		{name: "pickContact", kind: "com.palm.library.contactsui.peoplePicker",onContactClick:"contactClicked"},
 		{name: "pgPickContact", kind:"pgPeoplePicker", onComplete: "contactClicked"},
+		{name:'photoPicker', kind: "FilePicker", fileType:["image"], allowMultiSelect:false, onPickFile: "handlePhotoResult"},
 		{kind: "Menu", name: "sortItemsMenu", onBeforeOpen:"",allowHtml: true, components: [
 			{caption:"Added (Old-New)", onclick:"sortItems", by:"added"},
 			{caption:"Added (New-Old)", onclick:"sortItems", by:"addedD"},
@@ -77,7 +96,149 @@ enyo.kind({
 			{kind:"InputBox", components:[
 				{kind:"Image", src:"images/barcodes.png", style:"display:block;margin:10px auto;"}
 			]},
-			{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"addItemDialog"}
+			{kind: "HFlexBox", components:[
+				{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"addItemDialog", flex:1},
+				{kind: "Button", caption: "Add Manually", onclick:"openDialog",dialog:"manualAddDialog", className:"enyo-button-secondary"}
+			]}
+		]},
+		{kind:"ModalDialog",lazy:false,name:"manualAddDialog",caption:"Manually Add Item",width:"500px", height:"90%",onBeforeOpen:"setupManualDialog", components:[
+			{kind: "BasicScroller",height:"370px", autoVertical:true,autoHorizontal:true, components:[
+				{kind: "RowGroup", caption:"Details",components:[
+					{layoutKind: "HFlexLayout", components:[
+						{kind:"Input", name:"aiTitle", flex:1, components:[
+							{content:"Title",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout", name:"aiArtistRow",components:[
+						{kind:"Input", name:"aiArtist", flex:1, components:[
+							{content:"Artist",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout", name:"aiAuthorRow", components:[
+						{kind:"Input", name:"aiAuthor", flex:1, components:[
+							{content:"Author",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout", name:"aiDirectorRow", components:[
+						{kind:"Input", name:"aiDirector", flex:1, components:[
+							{content:"Director",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout", name:"aiPublisherRow", components:[
+						{kind:"Input", name:"aiPublisher", flex:1, components:[
+							{content:"Publisher",className:"enyo-label"}
+						]}
+					]},
+					/*{layoutKind: "HFlexLayout", name:"aiPlatformRow", components:[
+						{kind:"Input", name:"aiPlatform", flex:1, components:[
+							{content:"Platform",className:"enyo-label"}
+						]}
+					]},*/
+					{layoutKind: "HFlexLayout", align: "center", name:"aiPlatformRow", components: [
+						{kind: "ListSelector", name:"aiPlatform",flex:1, items: [
+							{caption: "3DO", value: "3DO"},
+							{caption: "Amiga", value: "Amiga"},
+							{caption: "Arcade", value: "Arcade"},
+							{caption: "Atari 2600", value: "Atari 2600"},
+							{caption: "Atari 5200", value: "Atari 5200"},
+							{caption: "Atari 7800", value: "Atari 7800"},
+							{caption: "Atari Jaguar", value: "Atari Jaguar"},
+							{caption: "Atari Jaguar CD", value: "Atari Jaguar CD"},
+							{caption: "Atari XE", value: "Atari XE"},
+							{caption: "Colecovision", value: "Colecovision"},
+							{caption: "Commodore 64", value: "Commodore 64"},
+							{caption: "Intellivision", value: "Intellivision"},
+							{caption: "Mac OS", value: "Mac OS"},
+							{caption: "Microsoft Xbox", value: "Microsoft Xbox"},
+							{caption: "Microsoft Xbox 360", value: "Microsoft Xbox 360"},
+							{caption: "NeoGeo", value: "NeoGeo"},
+							{caption: "Nintendo 64", value: "Nintendo 64"},
+							{caption: "Nintendo 3DS", value: "Nintendo 3DS"},
+							{caption: "Nintendo DS", value: "Nintendo DS"},
+							{caption: "Nintendo Entertainment System (NES)", value: "Nintendo Entertainment System (NES)"},
+							{caption: "Nintendo Game Boy", value: "Nintendo Game Boy"},
+							{caption: "Nintendo Game Boy Advance", value: "Nintendo Game Boy Advance"},
+							{caption: "Nintendo Game Boy Color", value: "Nintendo Game Boy Color"},
+							{caption: "Nintendo GameCube", value: "Nintendo GameCube"},
+							{caption: "Nintendo Wii", value: "Nintendo Wii"},
+							{caption: "Nintendo Wii U", value: "Nintendo Wii U"},
+							{caption: "PC", value: "PC"},
+							{caption: "Sega 32X", value: "Sega 32X"},
+							{caption: "Sega CD", value: "Sega CD"},
+							{caption: "Sega Dreamcast", value: "Sega Dreamcast"},
+							{caption: "Sega Game Gear", value: "Sega Game Gear"},
+							{caption: "Sega Genesis", value: "Sega Genesis"},
+							{caption: "Sega Master System", value: "Sega Master System"},
+							{caption: "Sega Mega Drive", value: "Sega Mega Drive"},
+							{caption: "Sega Saturn", value: "Sega Saturn"},
+							{caption: "Sony Playstation", value: "Sony Playstation"},
+							{caption: "Sony Playstation 2", value: "Sony Playstation 2"},
+							{caption: "Sony Playstation 3", value: "Sony Playstation 3"},
+							{caption: "Sony Playstation Vita", value: "Sony Playstation Vita"},
+							{caption: "Sony PSP", value: "Sony PSP"},
+							{caption: "Super Nintendo (SNES)", value: "Super Nintendo (SNES)"},
+							{caption: "TurboGrafx 16", value: "TurboGrafx 16"}
+						]},
+						{content: "Platform", className: "enyo-label"},						
+					]},										
+					{layoutKind: "HFlexLayout", align: "center", name:"aiMusicBindingRow", components: [
+						{kind: "ListSelector", name:"aiMusicBinding",flex:1, items: [
+							{caption: "CD", value: "CD"},
+							{caption: "Vinyl", value: "Vinyl"},
+							{caption: "Cassette", value: "Cassette"}
+						]},
+						{content: "Kind", className: "enyo-label"},						
+					]},					
+					{layoutKind: "HFlexLayout", align: "center", name:"aiMovieBindingRow", components: [
+						{kind: "ListSelector", name:"aiMovieBinding",flex:1, items: [
+							{caption: "DVD", value: "DVD"},
+							{caption: "Blu-ray", value: "Blu-ray"},
+							{caption: "VHS", value: "VHS"}
+						]},
+						{content: "Kind", className: "enyo-label"},						
+					]},					
+					{layoutKind: "HFlexLayout", align: "center", name:"aiBookBindingRow", components: [
+						{kind: "ListSelector", name:"aiBookBinding",flex:1, items: [
+							{caption: "Hardcover", value: "Hardcover"},
+							{caption: "Paperback", value: "Paperback"}
+						]},
+						{content: "Kind", className: "enyo-label"},						
+					]},										
+					{layoutKind: "HFlexLayout", name:"aiYearRow", components:[
+						{kind:"Input", name:"aiYear", flex:1, components:[
+							{content:"Year",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout", name:"aiUPCRow", components:[
+						{kind:"Input", name:"aiUPC", flex:1, components:[
+							{content:"UPC",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout", name:"aiISBNRow", components:[
+						{kind:"Input", name:"aiISBN", flex:1, components:[
+							{content:"ISBN",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout", components:[
+						{kind:"Input", name:"aiPrice", flex:1, components:[
+							{content:"Price",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout", components:[
+						{kind:"Input", name:"aiComment", flex:1, components:[
+							{content:"Comment",className:"enyo-label"}
+						]}
+					]},
+					{layoutKind: "HFlexLayout",components:[
+						{kind:"Image", name:"aiImage", flex:1, width:"264px",onclick:"setAIImage",  src:"images/defaultadd.png"},
+						{content:"Image",className:"enyo-label"}
+
+					]},
+				]}
+			]},
+			{content: "By submitting this content, it will become a searchable item for other users to add to their libraries. You agree that the photo you submit was taken by you. It will also be the photo used when this item is searchable for inclusion in other users' libraries. You're helping Wooden Rows' product database grow! Thanks!", style:"font-size: 13px"},
+			{kind: "ActivityButton", caption:"Save and Upload", name:"aiSaveItem", onclick:"aiSaveItem", className:"enyo-button-affirmative"},
+			{kind: "Button", caption:"Cancel", onclick:"closeDialog",dialog:"manualAddDialog"}
 		]},
 		{kind:"ModalDialog",lazy:false,name:"resultsDialog",layoutKind:"VFlexLayout",onBeforeOpen:"setupResults",caption: "Search Results", width: "90%", components: [
 			{kind: "VirtualList",height:"500px", name:"resultsList", onAcquirePage:"getPage", pageSize:10, onSetupRow: "getResult", autoVertical: true, horizontal:false, components:[
@@ -90,7 +251,11 @@ enyo.kind({
 				]}
 			]},
 			{name:"awsSearchStatus", content:"Loading results...",style:"text-align:center;"},
-			{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"resultsDialog"}
+			{kind:"HFlexBox", components:[
+				{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"resultsDialog", flex:1},
+				{kind: "Button",caption:"Try BestBuy",onclick:"doBBSearch",name:"doBBSearch"},
+				{kind: "Image", name:"resultsBranding", href:"", src:"", width:"125px", onclick:"goToLink"}
+			]}
 		]},
 		{kind: "Toaster", name: "itemDetail", flyInFrom:"right",className: "enyo-toaster enyo-popup-float pullout", lazy:false, components: [
 		    {name: "shadow", className: "enyo-sliding-view-shadow"},
@@ -106,7 +271,8 @@ enyo.kind({
 	        			{kind:'HtmlContent', name:'detailItemBorrowed', content:'', style:'font-weight:bold;text-align:center;'},
 	        			{name: "detailItemDescription", className:"displayItemDescription"},
 	        			{kind: "RowGroup", name:"detailItemDetails", caption: "Details", components:[
-	        			]}
+	        			]},
+	        			{kind: "Image",src:"",href:"",onclick:"goToLink", name:"displayItemBranding",style:"max-height: 125px;"}
 	        		]}
         		]},
         		{name: "toolbar", kind: "Toolbar", align: "center", defaultKind: "Control", components: [
@@ -121,6 +287,26 @@ enyo.kind({
             		]}
           		]}
       		]}			
+		]},
+		{kind:"ModalDialog", lazy:false, name:"migrationDialog", caption:"Migration Assistant", width:"90%", height: "99%", components:[
+			{kind:"HFlexBox", width: "100%",components:[
+				{name: "maCurrentItemBox", flex:1,components:[
+					{kind: "Image",name:"maCurrentItemImage",src:"",style:"display:block;margin:0 auto; max-height: 200px"},
+					{kind:"HtmlContent",name:"maCurrentItemDetails"},
+					{kind: "Button", name:"maSkip", onclick:"maSkipItem",caption:"Skip This"}					
+				]},
+				{name: "maMatchedItemBox", flex:1,components:[
+					{kind: "Image",name:"maMatchedItemImage",src:"",style:"display:block;margin:0 auto; max-height: 200px"},
+					{kind:"HtmlContent",name:"maMatchedItemDetails"},
+					{kind: "Button", name:"maNextMatch",caption:"Next Match", onclick:"maNextMatch"},
+					{kind: "ActivityButton",name:"maUseMatch",caption:"Use This",className:"enyo-button-affirmative", onclick:"maUseMatch"}					
+				]}
+			]},
+			{kind:"HFlexBox", width:"100%", components:[
+				{kind:"Input",name:"maSearchInput",hint:"Search...",flex:1},
+				{kind:"ActivityButton", name:"maSearchButton",caption:"Search",onclick:"maDoSearch"}
+			]},
+			{kind: "Button", caption:"Exit Migration Assistant", dialog:"migrationDialog",onclick:"closeDialog"}
 		]},
 	    {kind: "Toaster", name:"confirmDialog", lazy:false,className: "enyo-dialog", flyInFrom: "bottom", components: [
 	        {kind:"HtmlContent",content: "Are you sure you want to delete this group?", name:"confirmDialogText"},
@@ -246,13 +432,22 @@ enyo.kind({
 	goToLink: function(e){
 		//e.preventDefault();
 		//window.open(e.target.href);
+		
+		if(e.target){
+			var url=e.target.href;
+		}else if(e.href) {
+			var url=e.href;
+		}else{
+			var url=e;
+		}
+		
 		switch(this.platform){
 			case "webos":
-				this.$.openApp.call({target: e.target.href},{method:"open"})
+				this.$.openApp.call({target: url},{method:"open"})
 				break;
 			case "android":
 			case "web":
-				window.open(e.target.href);
+				window.open(url);
 				break;
 			case "ios":
 				break;
@@ -288,6 +483,23 @@ enyo.kind({
 		this.$.zhephreeAPI.call(data);
 		
 	},
+	setAIImage: function(inSender,inEvent){
+		switch(this.platform){
+			case "webos":
+				this.$.photoPicker.pickFile();
+				break;
+		}
+	},
+	handlePhotoResult: function(inSender,msg){
+		if(msg.length>0){
+			this.log(msg);
+			var pic=msg[0];
+			this.$.aiImage.setSrc(pic.fullPath);
+			this.uploadFile=pic.fullPath;
+		}else{
+		
+		}
+	},	
 	zAPISuccess: function(inSender,inResponse,inRequest){
 		//inResponse=enyo.json.parse(inResponse);
 		switch(inResponse.code){
@@ -436,7 +648,8 @@ enyo.kind({
 													var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort,shelves) VALUES ("'+item.artist+'", "'+item.asin+'", "'+item.author+'", "'+item.binding+'", "'+item.director+'", "'+item.image+'", "'+item.platform+'", "'+item.price+'", "'+item.publisher+'", "'+item.title+'", "'+item.upc+'", "'+item.year+'","'+item.extra+'","'+item.type+'","'+item.title_sort+'","'+item.shelves+'")';
 													//this.log("4.3");
 													//this.log(sql);
-										            transaction.executeSql(sql, [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler)); 
+													this.errorfrom="found added item on server";
+										            transaction.executeSql(sql, [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler,"found added item on server")); 
 													//this.log("4.5");
 													break;
 												case "2": //modified
@@ -470,6 +683,7 @@ enyo.kind({
 						//this.log(inResponse.result.message);
 						//this.log(inResponse.result.itemId);
 						this.$.syncSpinner.hide();
+						this.$.aiSaveItem.setActive(false);
 						break;
 					case "library.deleteItem":
 						//this.log(inResponse.result.message);
@@ -495,6 +709,31 @@ enyo.kind({
 						//this.log(inResponse.result.message);
 						this.loadLibrary();
 						this.$.syncSpinner.hide();
+						break;
+					case "library.getASIN":
+						this.newasin=inResponse.result.asin;
+						
+						//uploadimage
+					  	switch(this.platform){
+					  		case "webos":
+					  			this.log("uploading in webos...");
+							    this.$.downloadManager.call(
+							       {
+							          fileName: this.uploadFile,
+							          url: 'http://woodenro.ws/api.php',
+							          fileLabel: "upload",
+							          postParameters: [
+									          	{key: "method",data:"image.upload",contentType:"text/plain"},		          
+									          	{key: "asin",data:this.newasin,contentType:"text/plain"},		          
+							          ]
+							       }
+							    );								
+					  			break;
+					  		default:
+					  			this.log("no matching platform actions");
+					  			break;
+					  	}
+						
 						break;
 				}
 				break;
@@ -575,7 +814,8 @@ enyo.kind({
 	        enyo.bind(this,(function (transaction) { 			
 	        	//this.log("before loop");
 				for(var a=0;a<this.asyncArray.length;a++){
-							            transaction.executeSql('INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort,shelves) VALUES ("'+this.asyncArray[a].artist+'", "'+this.asyncArray[a].asin+'", "'+this.asyncArray[a].author+'", "'+this.asyncArray[a].binding+'", "'+this.asyncArray[a].director+'", "'+this.asyncArray[a].image+'", "'+this.asyncArray[a].platform+'", "'+this.asyncArray[a].price+'", "'+this.asyncArray[a].publisher+'", "'+this.asyncArray[a].title+'", "'+this.asyncArray[a].upc+'", "'+this.asyncArray[a].year+'","","'+this.asyncArray[a].type+'","'+this.asyncArray[a].title_sort+'","'+this.asyncArray[a].shelves+'")', [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler)); 
+					this.errorfrom="insert array";
+							            transaction.executeSql('INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort,shelves) VALUES ("'+this.asyncArray[a].artist+'", "'+this.asyncArray[a].asin+'", "'+this.asyncArray[a].author+'", "'+this.asyncArray[a].binding+'", "'+this.asyncArray[a].director+'", "'+this.asyncArray[a].image+'", "'+this.asyncArray[a].platform+'", "'+this.asyncArray[a].price+'", "'+this.asyncArray[a].publisher+'", "'+this.asyncArray[a].title+'", "'+this.asyncArray[a].upc+'", "'+this.asyncArray[a].year+'","","'+this.asyncArray[a].type+'","'+this.asyncArray[a].title_sort+'","'+this.asyncArray[a].shelves+'")', [], enyo.bind(this,this.libraryAsyncSuccess), enyo.bind(this,this.errorHandler,"insert array")); 
 				}
 				//this.log("after loop");
 	        })) 
@@ -618,6 +858,7 @@ enyo.kind({
 	},
 	createTableDataHandler: function(transaction, results){
 		this.log("db and table created");
+
 	},
 	inArray: function(array,item){
 		var inarray=false;
@@ -736,7 +977,8 @@ enyo.kind({
 		}catch(e){
 			console.log("errror");
 			console.log(e.description);
-			this.errorHandler(e);
+			this.errorfrom="error in data query handler";
+			this.errorHandler(e,undefined,"error in query data handler");
 		}
 	},
 	createRecordDataHandler: function(transaction,results){
@@ -744,20 +986,50 @@ enyo.kind({
 			console.log("create record handler");
 			this.addedItem=true;
 			this.loadLibrary();
-			
+			this.$.aiTitle.setValue('');
+			this.$.aiArtist.setValue('');
+			this.$.aiAuthor.setValue('');
+			this.$.aiDirector.setValue('');
+			this.$.aiPublisher.setValue('');
+			this.$.aiPlatform.setValue('');
+			this.$.aiYear.setValue('');
+			this.$.aiUPC.setValue('');
+			this.$.aiISBN.setValue('');
+			this.$.aiPrice.setValue('');
+			this.$.aiComment.setValue('');
+			this.newItemImage='';
+			this.$.aiSaveItem.setActive(false);
+			this.closeDialog({dialog:"manualAddDialog"});
 			console.log(enyo.json.stringify(results));
 			console.log(enyo.json.stringify(transaction));
 		}catch(e){}
 	},	
-	errorHandler: function(transaction, error){
+	errorHandler: function(transaction, error,c){
 		if(error){
 			if(error.description){
 				console.log(error.description);
 			}
-			console.log("error: "+error);
+			if(error.message){
+				console.log(error.message);
+			}
+			//console.log("error: "+error);
 			//console.log("error: "+enyo.json.stringify(error));	
-			this.log(error);
+			//this.log(error);
 		}
+			//console.log("transaction: "+enyo.json.stringify(transaction));	
+			console.log("c: "+this.errorfrom);	
+
+		var stuff='';
+		for(var i in error){
+			stuff+=i+': '+error[i]+', ';
+		}
+		console.log(stuff);
+		
+		var stuff2='';
+		for(var i in transaction){
+			console.log(i+': '+transaction[i]+', ');
+		}
+	//	console.log(stuff2);
 	},
 	create: function(){
 	
@@ -798,7 +1070,7 @@ enyo.kind({
 			//console.log("creating table");
 			this.nullHandleCount = 0;
 			
-			var string = 'CREATE TABLE IF NOT EXISTS library (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asin TEXT NOT NULL, author TEXT, binding TEXT, director TEXT, image TEXT, platform TEXT, price TEXT, publisher TEXT, title TEXT, upc TEXT, year INTEGER, type TEXT, extra TEXT, lent INTEGER, lentTo TEXT, lentOn INTEGER, title_sort TEXT, shelves TEXT)';
+			var string = 'CREATE TABLE IF NOT EXISTS library (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, artist TEXT, asin TEXT NOT NULL, author TEXT, binding TEXT, director TEXT, image TEXT, platform TEXT, price TEXT, publisher TEXT, title TEXT, upc TEXT, year INTEGER, type TEXT, extra TEXT, lent INTEGER, lentTo TEXT, lentOn INTEGER, title_sort TEXT, shelves TEXT, provider TEXT, isbn TEXT)';
 			//this.log("create table");
 		    this.db.transaction( 
 		        enyo.bind(this,(function (transaction) { 
@@ -807,7 +1079,20 @@ enyo.kind({
 					//transaction.executeSql('ALTER TABLE library ADD COLUMN lent INTEGER;', []); 
 					//transaction.executeSql('ALTER TABLE library ADD COLUMN lentTo TEXT;', []); 
 					//transaction.executeSql('ALTER TABLE library ADD COLUMN lentOn INTEGER;', []); 
-		            transaction.executeSql(string, [], enyo.bind(this,this.createTableDataHandler), enyo.bind(this,this.errorHandler)); 
+					//transaction.executeSql('ALTER TABLE library ADD COLUMN lentOn INTEGER;', []); 
+					
+					this.errorfrom="create table";
+		            transaction.executeSql(string, [], enyo.bind(this,this.createTableDataHandler), enyo.bind(this,this.errorHandler,"create table")); 
+
+		        }))
+		    );
+
+			//for any legacy users
+		    this.db.transaction( 
+		        enyo.bind(this,(function (transaction) { 
+					transaction.executeSql('ALTER TABLE library ADD COLUMN provider TEXT;', []); 
+					transaction.executeSql('ALTER TABLE library ADD COLUMN isbn TEXT;', []); 
+
 		        }))
 		    );
 
@@ -848,6 +1133,7 @@ enyo.kind({
 	    this.loadCount=0;
     	this.searchType="DVD";
     	this.filterBy='';
+    	this.musicSource="discogs";
 	    this.buildItemCells();
 	    
 	    
@@ -954,9 +1240,358 @@ enyo.kind({
 	    }
 	    
 	    
-	    this.$.appMenu.render();
+	    try{
+	    	this.$.appMenu.render();
+	    }catch(e){}
+	    
+	    
+	    
+	    
+	    //now we must check if they have old Amazon data in their library
+		var string = 'SELECT * FROM library WHERE image LIKE "%%ecx.images-amazon.com%%" OR image LIKE "%%images.amazon.com%%"';
+		//this.log("create table");
+	    this.db.transaction( 
+	        enyo.bind(this,(function (transaction) { 
+	            transaction.executeSql(string, [], enyo.bind(this,this.amazonDataHandler), enyo.bind(this,this.errorHandler,"create table")); 
+
+	        }))
+	    );
+	    
+	    
+	    
 	    
 	    //this.log(enyo.getCookie("user"));
+	},
+	amazonDataHandler: function(transaction,results){
+		if(results){
+			if(results.rows){
+				if(results.rows.length>0){
+					//has amazon
+					this.amazonData=results.rows;
+					this.showConfirmDialog("Your library contains content from Amazon. Due to their Terms of Service, this data must be removed from your library. However, you can replace your Amazon items with items found from our new data sources. Would you like to do this now?","scrubAmazonData");
+				}else{
+					//no amazon
+				}
+			}
+		}
+	},
+	scrubAmazonData: function(){
+		this.openDialog({dialog:"migrationDialog"});
+		this.maIndex=-1;
+		this.loadMAItem();
+	},
+	loadMAItem: function(){
+		this.maIndex++;
+		this.$.maSearchInput.setValue('');
+		this.$.maSearchButton.setActive(false);
+		var item=this.amazonData.item(this.maIndex);
+		this.$.maCurrentItemImage.setSrc(item.image);
+		this.currentMAItem=item;
+		var details='';
+		for(var k in item){
+			if((k!="image" && k!="id" && k!="asin" && k!="lent" && k!="lentTo" && k!="lentOn" && k!="title_sort" && k!="price" && k!="provider" && k!="shelves") && item[k]){
+				details+="<b>"+k+"</b>: "+item[k]+"<br>"; 
+			}
+		}
+		this.$.maCurrentItemDetails.setContent(details);
+		this.$.maMatchedItemDetails.setContent('');
+		this.$.maMatchedItemImage.setSrc('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAQAIBRAA7');
+		this.maDoSearch(this.$.maSearchButton);
+	},
+	maDoSearch: function(inSender,inEvent){
+		inSender.setActive(true);
+		
+		var query=this.$.maSearchInput.getValue();
+		if(query==""){
+			query=this.currentMAItem.title;
+		}
+		switch(this.currentMAItem.type){
+			case "Books":
+				if(query.indexOf(":")>-1){
+					var p=query.split(":");
+					this.log(p);
+					var title=p[0];
+				}else{
+					var title=query;
+				}
+				this.$.booksAPIMatch.call({title:title,limit:50});
+				break;
+			case "VideoGames":
+				if(query.indexOf(":")>-1){
+					var p=query.split(":");
+					this.log(p);
+					var title=p[0];
+				}else{
+					var title=query;
+				}
+				this.$.gamesAPIMatch.call({name:title});
+				break;
+			case "DVD":
+				if(query.indexOf(":")>-1){
+					var p=query.split(":");
+					this.log(p);
+					var title=p[0];
+				}else{
+					var title=query;
+				}
+				var url="http://api.remix.bestbuy.com/v1/products(search="+title+"&type=Movie)";
+				var data={
+					apiKey:'dqgzhcnnktw2a8yjruguxey4',
+					format:'json'
+				};
+				this.$.moviesAPIMatch.setUrl(url);
+				this.$.moviesAPIMatch.call(data);
+				break;
+		}
+		
+	},
+	loadMatchItem: function(){
+		this.maMatchIndex++;
+		var item=this.matchItems[this.maMatchIndex];
+		this.matchedItem=item;
+		this.$.maMatchedItemImage.setSrc(item.image || item.fullImage);
+		var details='';
+		for(var k in item){
+			if((k!="image" && k!="id" && k!="fullImage" && k!="asin" && k!="lent" && k!="lentTo" && k!="lentOn" && k!="title_sort" && k!="price" && k!="provider" && k!="shelves") && item[k]){
+				if(this.currentMAItem.hasOwnProperty(k)){
+					var cival=(this.currentMAItem[k]==null || this.currentMAItem[k]==undefined)? "": this.currentMAItem[k];
+					if(this.isNumber(cival)){
+						cival=""+cival+"";
+					}
+				}else{
+					var cival="";
+				}
+				var val=item[k];
+				
+				if(cival!="" && cival!=undefined){
+					if(this.isNumber(item[k])){
+						item[k]=""+item[k]+"";
+					}
+					if(cival.toLowerCase()==item[k].toLowerCase()){
+						val='<span style="color: #0f0;">'+item[k]+'</span>';
+						this.log("values are equal");
+					}else{
+						if(cival!=""){
+							if(cival.toLowerCase().indexOf(item[k].toLowerCase())>-1 || item[k].toLowerCase().indexOf(cival.toLowerCase())>-1){
+								this.log("value in other value");
+								val='<span style="color: #0f0;">'+item[k]+'</span>';			
+							}
+						}
+					}
+				}
+				
+				details+="<b>"+k+"</b>: "+val+"<br>"; 
+			}
+		}
+		this.$.maMatchedItemDetails.setContent(details);
+	},
+	moviesMatchSuccess: function(inSender,inResponse,inRequest){
+		this.$.maSearchButton.setActive(false);
+		var j=inResponse;
+		this.log(j);
+		var items=j.products;
+		var itemsCount=items.length;
+			  	this.matchItems=[];
+
+		for(var i=0;i<itemsCount;i++){
+			var asin=(items[i].sku)? items[i].sku: "";
+			var isbn='';
+			var upc=(items[i].upc)? items[i].upc: "";
+			var title=(items[i].name)? items[i].name.replace(" - DVD","").replace(" - Blu-ray Disc","").replace("Blu-ray 3D",""): "";
+			var tparts=title.split("[");
+			var title=tparts[0];
+			var year=(items[i].releaseDate)? items[i].releaseDate.substr(0,4): "";
+			var image=(items[i].thumbnailImage)? items[i].thumbnailImage: "";
+			var fullImage=(items[i].image)? items[i].image: "";
+			var director="";
+			var author='';
+			var artist=(items[i].artistName)? items[i].artistName: "";
+			var publisher=(items[i].studio)? items[i].studio: "";
+			var price=(items[i].regularPrice)? items[i].regularPrice: "";
+			var format=(items[i].format)? items[i].format: "DVD";
+			
+	
+			var itm={
+				asin: asin,
+				isbn: isbn,
+				upc: upc,
+				title: title,
+				year: year,
+				image: image,
+				fullImage: fullImage,
+				director: director,
+				binding: format,
+				author: author,
+				artist: artist,
+				publisher: publisher,
+				platform: "",
+				price: price,
+				provider: "bestbuy"
+			};
+			
+			this.matchItems.push(itm);
+	
+		}
+		this.maMatchIndex=-1;
+		this.loadMatchItem();
+	
+	},
+	gamesMatchSuccess: function(inSender,inResponse,inRequest){
+		this.$.maSearchButton.setActive(false);
+	    var parser=new DOMParser();
+	  	var xml=parser.parseFromString(inResponse,"text/xml");
+	  	
+	  	var items=xml.getElementsByTagName("Game");
+	  	//this.log("found "+items.length+" items");
+	  	this.matchItems=[];
+
+	
+	  	var itemCount=items.length;
+	  	if(itemCount>0){
+	  		this.$.awsSearchStatus.hide();
+	  		this.$.resultsList.show();
+		  	for(var i=0;i<itemCount;i++){
+		  		var item=items[i];
+		  		
+		  		var asin=item.getElementsByTagName("id")[0];
+		  		if(asin){asin=asin.childNodes[0].nodeValue;}
+	
+		  		var title=item.getElementsByTagName("GameTitle")[0];
+		  		if(title){title=title.childNodes[0].nodeValue;}
+	
+		  		var platform=item.getElementsByTagName("Platform")[0];
+		  		if(platform){platform=platform.childNodes[0].nodeValue;}
+	
+		  		var year=item.getElementsByTagName("ReleaseDate")[0];
+		  		if(year){year=year.childNodes[0].nodeValue.substr(-4);}
+	
+		  		var baseimgurl=xml.getElementsByTagName("baseImgUrl")[0];
+		  		if(baseimgurl){baseimgurl=baseimgurl.childNodes[0].nodeValue;}
+	
+	
+		  		var images=item.getElementsByTagName("boxart");
+		  		var image="";
+		  		for(var b=0;b<images.length;b++){
+		  			if(images[b].getAttribute("side")=="front"){
+			  			image=baseimgurl+images[b].childNodes[0].nodeValue;
+		  			}
+		  		}
+	
+		  		var publisher=item.getElementsByTagName("Publisher")[0];
+		  		if(publisher){publisher=publisher.childNodes[0].nodeValue;}
+	
+				var itm={
+					asin: asin,
+					isbn: "",
+					upc: "",
+					title: title,
+					year: year,
+					image: image,
+					fullImage: "",
+					director: "",
+					binding: "VideoGame",
+					author: "",
+					artist: "",
+					publisher: publisher,
+					platform: platform,
+					price: "",
+					provider: "gamesdb"
+				};
+				
+				this.matchItems.push(itm);
+	
+			}
+			
+		}else{
+		
+		}
+		this.maMatchIndex=-1;
+		this.loadMatchItem();
+	
+	},
+	bookMatchSuccess: function(inSender,inResponse,inRequest){
+		this.$.maSearchButton.setActive(false);
+		var j=inResponse;
+		this.log(j);
+		var items=j.docs;
+		var itemsCount=items.length;
+		this.matchItems=[];
+		for(var i=0;i<itemsCount;i++){
+			if(!items[i].isbn){
+				items[i].isbn=[{}];
+			}
+			for(var j=0,isbnCount=items[i].isbn.length;j<isbnCount;j++){
+				var isbn=items[i].isbn[j];
+				var key=(items[i].key)? items[i].key: isbn;
+				var year=(items[i].first_publish_year)? items[i].first_publish_year: "";
+				var image=(items[i].isbn)? "http://covers.openlibrary.org/b/isbn/"+isbn+"-S.jpg": "http://covers.openlibrary.org/b/id/"+items[i].cover_i+"-S.jpg";
+				var fullImage=(items[i].isbn)? "http://covers.openlibrary.org/b/isbn/"+isbn+"-M.jpg": "http://covers.openlibrary.org/b/id/"+items[i].cover_i+"-M.jpg";
+				var author=(items[i].author_name)? items[i].author_name[0]: "";
+				var publisher=(items[i].publisher)? items[i].publisher[0]: "";
+				var itm={
+					asin: key,
+					isbn: isbn,
+					upc: "",
+					title: items[i].title,
+					year: year,
+					image: image,
+					fullImage: fullImage,
+					director: "",
+					binding: "Books",
+					author: author,
+					artist: "",
+					publisher: publisher,
+					platform: "",
+					price: "",
+					provider: "openlibrary"
+				};
+				
+				this.matchItems.push(itm);
+			}
+		}
+		
+		this.maMatchIndex=-1;
+		this.loadMatchItem();
+	},
+	maUseMatch: function(inSender,inEvent){
+		this.$.maUseMatch.setActive(true);
+		
+		//determine what has changed
+		var ci=this.currentMAItem;
+		var mi=this.matchedItem;
+		var itm={};
+		if(ci.asin!=mi.asin) itm.asin=mi.asin;
+		if(ci.isbn!=mi.isbn && mi.isbn) itm.isbn=mi.isbn;
+		if(ci.upc!=mi.upc && mi.upc) itm.upc=mi.upc;
+		if(ci.title!=mi.title && mi.title) itm.title=mi.title;
+		if(ci.year!=mi.year && mi.year) itm.year=mi.year;
+		if(ci.image!=mi.image && mi.image) itm.image=mi.image;
+		if(ci.director!=mi.director && mi.director) itm.director=mi.director;
+		if(ci.author!=mi.author && mi.author) itm.author=mi.author;
+		if(ci.artist!=mi.artist && mi.artist) itm.artist=mi.artist;
+		if(ci.publisher!=mi.publisher && mi.publisher) itm.publisher=mi.publisher;
+		if(ci.platform!=mi.platform && mi.platform) itm.platform=mi.platform;
+		if(ci.price!=mi.price && mi.price) itm.price=mi.price;
+		if(ci.provider!=mi.provider && mi.provider) itm.provider=mi.provider;
+		
+ 		
+ 		itm.token= this.userToken;
+ 		itm.method= 'library.editItem';
+ 		itm.owner= this.userId;
+ 		itm.oldasin= this.currentMAItem.asin;
+ 		
+ 		this.$.woodenrowsAPI.setMethod("POST");
+ 		this.$.woodenrowsAPI.call(itm);
+ 		
+ 		//TODO: update locally, auto move to next item, allow manual add/edit
+		
+		
+	},
+	maSkipItem: function(inSender,inEvent){
+		this.loadMAItem();
+	},
+	maNextMatch: function(inSender,inEvent){
+		this.loadMatchItem();
 	},
 	onMenuButton: function(){
 		this.$.androidMenu.toggleOpen();
@@ -1048,6 +1683,7 @@ enyo.kind({
 		this.setCurrent=setCurrent;
 	    this.db.transaction( 
 	        enyo.bind(this,(function (transaction) { 
+	        	this.errorfrom="loading library";
 	            transaction.executeSql(mytext, [], enyo.bind(this,this.queryDataHandler), enyo.bind(this,this.errorHandler)); 
 	        }))
 	    );
@@ -1302,13 +1938,13 @@ enyo.kind({
   },
   displayItem: function(item){
   	var item=(item)? item: this.data[this.currentIndex];
-	  //this.log(item);
+	 this.log(item);
   	
   	this.$.detailItemName.setContent(item.title.replace(/\\'/g,"'"));
   	var creator=item.author || item.artist || item.director || item.publisher || "Unknown";
   	
   	this.$.detailItemCreator.setContent(creator);
-  	this.$.detailItemImage.setSrc(item.image.replace("._SL160_",""));
+  	this.$.detailItemImage.setSrc(item.image.replace("._SL160_","").replace("-M","-L"));
   	this.$.detailItemDetails.destroyControls();
 
 	if(item.lent=="1"){
@@ -1330,22 +1966,341 @@ enyo.kind({
 	}
 
 	//make a call for more data
-  	var url=this.apiUrl+"?Service=AWSECommerceService&Operation=ItemLookup&AssociateTag=frobba-20&ResponseGroup=Large";
-  	url+="&ItemId="+item.asin;
+  	//var url=this.apiUrl+"?Service=AWSECommerceService&Operation=ItemLookup&AssociateTag=frobba-20&ResponseGroup=Large";
+  	//url+="&ItemId="+item.asin;
   	//this.log(url);
   	
-  	var signedUrl=invokeRequest(url);
+  	//var signedUrl=invokeRequest(url);
   	//this.log("signed=",signedUrl);
-  	this.$.awsItem.setUrl(signedUrl);
-  	this.$.awsItem.call();
+  	//this.$.awsItem.setUrl(signedUrl);
+  	//this.$.awsItem.call();
+	switch(item.provider){
+		case "openlibrary":
+			this.log("openlibrary");
+			this.bibkey="ISBN:"+item.isbn;
+			var data={
+				bibkeys: this.bibkey,
+				format: "json",
+				jscmd: "details"
+			};
+			this.$.booksDetail.call(data);
+			break;
+		case "gamesdb":
+			this.log("gamedb");
+			var data={
+				id: item.asin
+			};
+			this.$.gamesDetail.call(data);
+			break;
+		case "bestbuy":
+			this.log("bby");
+			var url="http://api.remix.bestbuy.com/v1/products(sku="+item.asin+")";
+			var data={
+				apiKey:'dqgzhcnnktw2a8yjruguxey4',
+				format:'json'
+			};
+			this.$.moviesDetail.setUrl(url);
+			this.$.moviesDetail.call(data);
+			break;
+		case "discogs":
+			this.$.musicDetail.setUrl("http://api.discogs.com/releases/"+item.asin);
+			this.$.musicDetail.call();
+			break;
+		case "woodenrows":
+			this.awsItemSuccess("woodenrows");
+			break;
+		default:
+			this.log("not a thing");
+			break;
+	}
 	
   	
   	this.$.itemDetail.open();
   
   },
   awsItemSuccess: function(inSender,inResponse,inRequest){
-  	//this.log(inResponse);
-  	var parser=new DOMParser();
+  	this.log(inResponse);
+  	this.log("success");
+  	var rows=[];
+  	switch(inSender){
+  		case this.$.booksDetail:
+  			var j=inResponse;
+  			this.log(j);
+  			var item=j[this.bibkey].details;
+  			
+			var publisher=item.publishers;
+			if(publisher){
+				publisher=publisher[0];
+				var r={layoutKind: "HFlexLayout", components:[{content:publisher, flex:1},{content:"Publisher",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var publicationdate=item.publish_date;
+			if(publicationdate){
+				//publicationdate=publicationdate.childNodes[0].nodeValue;
+				var r={layoutKind: "HFlexLayout", components:[{content:publicationdate, flex:1},{content:"Publication Date",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var genre=item.genres;
+			if(genre){
+				genre=genre[0];
+				var r={layoutKind: "HFlexLayout", components:[{content:genre, flex:1},{content:"Genre",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var pages=item.number_of_pages;
+			if(pages){
+				//publicationdate=publicationdate.childNodes[0].nodeValue;
+				var r={layoutKind: "HFlexLayout", components:[{content:pages, flex:1},{content:"Pages",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			
+  			break;
+  		case this.$.musicDetail:
+  			var j=inResponse;
+  			var item=j;
+  			
+			var genres=item.genres;
+			if(genres){
+				var genre=genres.join("<br>");
+				var r={layoutKind: "HFlexLayout", components:[{content:genre, flex:1},{content:"Genre",className:"enyo-label"}]};
+				rows.push(r);
+				
+			}
+			var styles=item.styles;
+			if(styles){
+				var style=styles.join("<br>");
+				var r={layoutKind: "HFlexLayout", components:[{content:style, flex:1},{content:"Styles",className:"enyo-label"}]};
+				rows.push(r);
+				
+			}
+  			
+			var labels=item.labels;
+			if(labels){
+				var label='';
+				for(var b=0;b<labels.length;b++){
+					label+=labels[b].name+"<br>";
+				}
+				var r={layoutKind: "HFlexLayout", components:[{content:label, flex:1},{content:"Label",className:"enyo-label"}]};
+				rows.push(r);
+				
+			}
+
+			var notes=item.notes;
+			if(notes){
+				var notes=notes.replace(/(<([^>]+)>)/ig,"").replace("\r\n","<br>");
+				var r={layoutKind: "HFlexLayout", components:[{content:notes, flex:1},{content:"Notes",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			
+			var year=item.released;
+			if(year){
+				var r={layoutKind: "HFlexLayout", components:[{content:year, flex:1},{content:"Release Date",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			
+			var tracklist=item.tracklist;
+			if(tracklist){
+				var songs=[];
+				for(var t=0;t<tracklist.length;t++){
+					var track=tracklist[t];
+					songs[parseInt(track.position)]=track.title+" ("+track.duration+")";
+				}
+				var l='<ol>';
+				for(var s=1;s<songs.length;s++){
+					l+='<li>'+songs[s]+'</li>';
+				}
+				l+='</ol>';
+				var r={layoutKind: "HFlexLayout", components:[{content:l, flex:1},{content:"Tracks",className:"enyo-label"}]};
+				rows.push(r);
+				
+			}
+  			
+  			//find a better image, if available:
+  			var images=item.images;
+  			if(images){
+  				for(var p=0;p<images.length;p++){
+  					if(images[p].type=="primary"){
+  						this.$.detailItemImage.setSrc(images[p].uri);
+  						break;
+  					}
+  				}
+  			}
+  			
+  			break;
+  		case this.$.moviesDetail:
+  			var j=inResponse;
+  			var item=j.products[0];
+
+			var description=item.plot;
+			if(description){
+				var r={layoutKind: "HFlexLayout", components:[{content:description, flex:1},{content:"Description",className:"enyo-label"}]};
+				rows.push(r);
+			}
+  			
+
+			var duration=item.lengthInMinutes;
+			if(duration){
+				var r={layoutKind: "HFlexLayout", components:[{content:duration+" minutes", flex:1},{content:"Running Time",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var rating=item.mpaaRating;
+			if(rating){
+				var r={layoutKind: "HFlexLayout", components:[{content:rating, flex:1},{content:"MPAA Rating",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var tdate=item.theatricalReleaseDate;
+			if(tdate){
+				var r={layoutKind: "HFlexLayout", components:[{content:tdate, flex:1},{content:"Theatrical Release",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var genre=item.genre;
+			if(genre){
+				var r={layoutKind: "HFlexLayout", components:[{content:genre, flex:1},{content:"Genre",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var label=item.albumLabel;
+			if(label){
+				var r={layoutKind: "HFlexLayout", components:[{content:label, flex:1},{content:"Label",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var rdate=item.releaseDate;
+			if(rdate){
+				var r={layoutKind: "HFlexLayout", components:[{content:rdate, flex:1},{content:"Release Date",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+
+
+
+
+/*			var link=item.url;
+			if(link){
+				var r={layoutKind: "HFlexLayout", components:[{content:"Click to View", flex:1,href:link,onclick:"goToLink",goToLink:function(inSender){
+					this.parent.parent.goToLink(inSender);
+				}},{content:"External Website",className:"enyo-label"}]};
+				rows.push(r);
+			}*/
+  			
+  			break;
+  		case this.$.gamesDetail:
+  			var parser=new DOMParser();
+		  	var xml=parser.parseFromString(inResponse,"text/xml");
+			
+			var description=xml.getElementsByTagName("Overview")[0];
+			if(description){
+				description=description.childNodes[0].nodeValue;		
+				var r={layoutKind: "HFlexLayout", components:[{content:description, flex:1},{content:"Description",className:"enyo-label"}]};
+			}else{
+				description="";
+			}
+
+			var platform=xml.getElementsByTagName("Platform")[0];
+			if(platform){
+				platform=platform.childNodes[0].nodeValue;
+				var r={layoutKind: "HFlexLayout", components:[{content:platform, flex:1},{content:"Platform",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			
+			var developer=xml.getElementsByTagName("Developer")[0];
+			if(developer){
+				developer=developer.childNodes[0].nodeValue;
+				var r={layoutKind: "HFlexLayout", components:[{content:developer, flex:1},{content:"Developers",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			
+			
+			var publisher=xml.getElementsByTagName("Publisher")[0];
+			if(publisher){
+				publisher=publisher.childNodes[0].nodeValue;
+				var r={layoutKind: "HFlexLayout", components:[{content:publisher, flex:1},{content:"Publisher",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var releasedate=xml.getElementsByTagName("ReleaseDate")[0];
+			if(releasedate){
+				releasedate=releasedate.childNodes[0].nodeValue;
+				var r={layoutKind: "HFlexLayout", components:[{content:releasedate, flex:1},{content:"Release Date",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var audience=xml.getElementsByTagName("ESRB")[0];
+			if(audience){
+				audience=audience.childNodes[0].nodeValue;
+				var r={layoutKind: "HFlexLayout", components:[{content:audience, flex:1},{content:"ESRB Rating",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var genres=xml.getElementsByTagName("Genres")[0];
+			if(genres){
+				var genrelist=genres.getElementsByTagName("genre");
+				var genre='';
+				for(var g=0;g<genrelist.length;g++){
+					genre+=genrelist[g].childNodes[0].nodeValue+"<br>";
+				}
+				var r={layoutKind: "HFlexLayout", components:[{content:genre, flex:1},{content:"Genre",className:"enyo-label"}]};
+				rows.push(r);
+			}
+
+			var players=xml.getElementsByTagName("Players")[0];
+			if(players){
+				players=players.childNodes[0].nodeValue;
+				var r={layoutKind: "HFlexLayout", components:[{content:players, flex:1},{content:"Players",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			
+  			break;
+  		case "woodenrows":
+  			var item=this.currentItem;
+			var author=item.author;
+			if(author){
+				var r={layoutKind: "HFlexLayout", components:[{content:author, flex:1},{content:"Author",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var artist=item.artist;
+			if(artist){
+				var r={layoutKind: "HFlexLayout", components:[{content:artist, flex:1},{content:"Artist",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var director=item.director;
+			if(director){
+				var r={layoutKind: "HFlexLayout", components:[{content:director, flex:1},{content:"Director",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var publisher=item.publisher;
+			if(publisher){
+				var r={layoutKind: "HFlexLayout", components:[{content:publisher, flex:1},{content:"Publisher",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var year=item.year;
+			if(year){
+				var r={layoutKind: "HFlexLayout", components:[{content:year, flex:1},{content:"Year",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var comment=item.comment;
+			if(comment){
+				var r={layoutKind: "HFlexLayout", components:[{content:comment, flex:1},{content:"Comment",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var binding=item.binding;
+			if(binding && binding!="VideoGame"){
+				var r={layoutKind: "HFlexLayout", components:[{content:binding, flex:1},{content:"Kind",className:"enyo-label"}]};
+				rows.push(r);
+			}
+			var platform=item.platform;
+			if(platform){
+				var r={layoutKind: "HFlexLayout", components:[{content:platform, flex:1},{content:"Platform",className:"enyo-label"}]};
+				rows.push(r);
+			}
+  			
+  			break;
+  		default:
+  			break;
+  	}
+  	/*var parser=new DOMParser();
   	var xml=parser.parseFromString(inResponse,"text/xml");
   	var rows=[];
 
@@ -1487,10 +2442,19 @@ enyo.kind({
 		pages=pages.childNodes[0].nodeValue;
 		var r={layoutKind: "HFlexLayout", components:[{content:pages, flex:1},{content:"Pages",className:"enyo-label"}]};
 		rows.push(r);
-	}
+	}*/
 
 	var r={layoutKind: "HFlexLayout", components:[{content:this.sqlUnescape(this.currentItem.extra), flex:1},{content:"Comment",className:"enyo-label"}]};	
 	rows.push(r);
+
+	var provider=this.currentItem.provider;
+	if(provider){
+		this.$.displayItemBranding.setSrc("images/"+this.getBrandingLogo(provider));
+		this.$.displayItemBranding.href= this.getBrandingLink(provider);
+		this.$.displayItemBranding.show();
+	}else{
+		this.$.displayItemBranding.hide();
+	}
 	
 	this.$.detailItemDetails.createComponents(rows);
 	this.$.detailItemDetails.render();
@@ -1498,12 +2462,17 @@ enyo.kind({
   bindingToType: function(binding,platform){
   	var map={
   		"Audio CD":"cd",
+  		"CD":"cd",
+  		"Vinyl":"vinyl",
   		"DVD":"dvd",
   		"Blu-ray":"bluray",
+  		"Blu-ray Disc":"bluray",
+  		"Blu-ray 3D":"bluray",
   		"Paperback":"book",
   		"Hardcover":"book",
   		"Mass Market Paperback":"book",
-  		"MP3 Download":"cd"
+  		"MP3 Download":"cd",
+  		"Books":"book"
   		
   	};
   	
@@ -1511,11 +2480,16 @@ enyo.kind({
   		"Nintendo Wii":"wii",
   		"Xbox 360":"xbox",
   		"Xbox":"xbox",
+  		"Microsoft Xbox 360":"xbox",
+  		"Microsoft Xbox":"xbox",
   		"Nintendo DS":"ds",
   		"Nintendo 3DS":"tds",
   		"PlayStation 3":"ps3",
   		"PlayStation2":"dvd",
   		"PlayStation":"cd",
+  		"Sony PlayStation 3":"ps3",
+  		"Sony PlayStation2":"dvd",
+  		"Sony PlayStation":"cd",
   		"Sega Dreamcast":"cd"
   	};
 
@@ -1591,7 +2565,8 @@ enyo.kind({
 	this.db.transaction( 
 		enyo.bind(this,(function (transaction) { 
 			//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
-		    transaction.executeSql(string, [], enyo.bind(this,this.itemReturnedOK), enyo.bind(this,this.errorHandler)); 
+			this.errorfrom="item returned";
+		    transaction.executeSql(string, [], enyo.bind(this,this.itemReturnedOK), enyo.bind(this,this.errorHandler,"item returned")); 
 		}))
 	);
 	
@@ -1631,7 +2606,8 @@ enyo.kind({
 	this.db.transaction( 
 		enyo.bind(this,(function (transaction) { 
 			//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
-		    transaction.executeSql(string, [], enyo.bind(this,this.itemRemovedOK), enyo.bind(this,this.errorHandler)); 
+			this.errorfrom="remove item";
+		    transaction.executeSql(string, [], enyo.bind(this,this.itemRemovedOK), enyo.bind(this,this.errorHandler,"remove item")); 
 		}))
 	);
 	
@@ -1653,15 +2629,17 @@ enyo.kind({
     this.removeDone=enyo.bind(this,this.removeAniDone);
     if(cell){
     	this.iw=cell.$.imageWrapper;
-    	this.iw.hasNode().addEventListener( 'webkitTransitionEnd', this.removeDone, false );
-    	this.iw.addClass("removing");
+    	if(this.iw){
+	    	this.iw.hasNode().addEventListener( 'webkitTransitionEnd', this.removeDone, false );
+    		this.iw.addClass("removing");
+    	}
     }
   },
   removeAniDone: function(){
 	this.loadLibrary(true);
       //this.log(this.currentItem);
 	  enyo.windows.addBannerMessage("Ohh, that was a nice i-- DELETED!!","{}");
-    this.iw.removeEventListener('webkitTransitionEnd',this.removeDone,false);
+    this.iw.hasNode().removeEventListener('webkitTransitionEnd',this.removeDone,false);
   },
  
   lendItem: function(inSender,inEvent){
@@ -1722,7 +2700,8 @@ enyo.kind({
 	this.db.transaction( 
 		enyo.bind(this,(function (transaction) { 
 			//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
-		    transaction.executeSql(string, [], enyo.bind(this,this.itemLentOK), enyo.bind(this,this.errorHandler)); 
+			this.errorfrom="lend out";
+		    transaction.executeSql(string, [], enyo.bind(this,this.itemLentOK), enyo.bind(this,this.errorHandler,"lend out")); 
 		}))
 	);
  	if(this.userToken){
@@ -1767,7 +2746,8 @@ enyo.kind({
 		this.db.transaction( 
 			enyo.bind(this,(function (transaction) { 
 				//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
-			    transaction.executeSql(string, [], enyo.bind(this,this.itemCommentOK), enyo.bind(this,this.errorHandler)); 
+				this.errorfrom="save comment";
+			    transaction.executeSql(string, [], enyo.bind(this,this.itemCommentOK), enyo.bind(this,this.errorHandler,"save comment")); 
 			}))
 		);  		
 
@@ -1796,7 +2776,8 @@ enyo.kind({
 		this.db.transaction( 
 			enyo.bind(this,(function (transaction) { 
 				//transaction.executeSql('DROP TABLE IF EXISTS library;', []); 
-			    transaction.executeSql(string, [], enyo.bind(this,this.itemCommentOK), enyo.bind(this,this.errorHandler)); 
+				this.errorfrom="remove comment";
+			    transaction.executeSql(string, [], enyo.bind(this,this.itemCommentOK), enyo.bind(this,this.errorHandler,"remove comment")); 
 			}))
 		);  		
 
@@ -1847,6 +2828,8 @@ enyo.kind({
   },
   searchItems: function(inSender){
   	inSender.setActive(true);
+  	this.$.doBBSearch.hide();
+
   	/*var url=this.apiUrl+"?Service=AWSECommerceService&Operation=ItemSearch&AssociateTag=frobba-20&ResponseGroup=Medium";
   	var kw=this.$.addItemInput.getValue().replace(/\-/g,"");
 	if(this.isNumber(kw) && kw.length>3){
@@ -1862,25 +2845,426 @@ enyo.kind({
   	var signedUrl=invokeRequest(url);
   	//this.log("signed=",signedUrl);*/
 
-  	var url="http://woodenro.ws/api.php?method=find&token="+this.userToken;
   	var kw=this.$.addItemInput.getValue().replace(/\-/g,"");
+  	var upcData={
+  		request_type: 3,
+  		access_token: '84489762-578D-47FF-8D02-D6012A7FAD25',
+  		upc: kw
+  	};
 	if(this.isNumber(kw) && kw.length>3){
-		url+="&type=upc";
+		switch(this.searchType){
+			case "Books":
+				if(kw.length!=10 && kw.length!=13){
+					//then we have a upc, not an ISBN
+					this.$.barcodeAPI.call(upcData);
+				}else{
+					this.$.booksAPI.call({isbn:kw, limit:50});
+				}
+				break;
+			case "VideoGames":
+				this.$.barcodeAPI.call(upcData);
+				break;
+			case "DVD":
+				var url="http://api.remix.bestbuy.com/v1/products(upc="+kw+")";
+				var data={
+					apiKey:'dqgzhcnnktw2a8yjruguxey4',
+					format:'json'
+				};
+				this.$.moviesAPI.setUrl(url);
+				this.$.moviesAPI.call(data);
+				break;
+			case "Music":
+				if(this.musicSource=="discogs"){
+					var data={
+						barcode: kw
+					};
+					this.$.musicAPI.call(data);
+				  	this.$.doBBSearch.show();
+
+				}else if(this.musicSource=="bestbuy"){
+					var url="http://api.remix.bestbuy.com/v1/products(upc="+kw+")";
+					var data={
+						apiKey:'dqgzhcnnktw2a8yjruguxey4',
+						format:'json'
+					};
+					this.$.moviesAPI.setUrl(url);
+					this.$.moviesAPI.call(data);					
+				}
+				break;
+		}
 	}else{
-	  	url+="&type="+this.searchType;
+		switch(this.searchType){
+			case "Books":
+				//search Google Books
+				this.$.booksAPI.call({title:kw,limit:50});
+				break;
+			case "DVD":
+				var url="http://api.remix.bestbuy.com/v1/products(search="+kw+"&type=Movie)";
+				var data={
+					apiKey:'dqgzhcnnktw2a8yjruguxey4',
+					format:'json'
+				};
+				this.$.moviesAPI.setUrl(url);
+				this.$.moviesAPI.call(data);
+				break;
+			case "Music":
+				if(this.musicSource=="discogs"){
+					this.$.musicAPI.call({q:kw,type:'release',per_page:75});
+					this.$.doBBSearch.show();
+
+				}else if(this.musicSource=="bestbuy"){
+					var url="http://api.remix.bestbuy.com/v1/products(search="+kw+"&type=Music)";
+					var data={
+						apiKey:'dqgzhcnnktw2a8yjruguxey4',
+						format:'json'
+					};
+					this.$.moviesAPI.setUrl(url);
+					this.$.moviesAPI.call(data);
+				}
+				break;
+			case "VideoGames":
+				this.$.gamesAPI.call({name:kw});
+				break;
+		}
 	}
-	url+="&keyword="+encodeURIComponent(kw);
   	
 
   	this.searchResults=[];
   	this.doingSearch=true;
   	this.gettingPage=false;
   	
-  	this.$.awsSearch.setUrl(url);
-  	this.$.awsSearch.call();
+//  	this.$.awsSearch.setUrl(url);
+  //	this.$.awsSearch.call();
+  },
+  gamesSuccess: function(inSender, inResponse, inRequest){
+  	this.$.addItemSearch.setActive(false);
+  	//enyo.keyboard.setManualMode(true);
+  	//enyo.keyboard.hide();
+  	window.setTimeout(enyo.bind(this,function(){this.$.addItemInput.forceBlur();}),500);
+
+	this.log("got games");
+    
+    var parser=new DOMParser();
+  	var xml=parser.parseFromString(inResponse,"text/xml");
+  	
+  	var items=xml.getElementsByTagName("Game");
+  	//this.log("found "+items.length+" items");
+  	
+
+  	var itemCount=items.length;
+  	if(itemCount>0){
+  		this.$.awsSearchStatus.hide();
+  		this.$.resultsList.show();
+	  	for(var i=0;i<itemCount;i++){
+	  		var item=items[i];
+	  		
+	  		var asin=item.getElementsByTagName("id")[0];
+	  		if(asin){asin=asin.childNodes[0].nodeValue;}
+
+	  		var title=item.getElementsByTagName("GameTitle")[0];
+	  		if(title){title=title.childNodes[0].nodeValue;}
+
+	  		var platform=item.getElementsByTagName("Platform")[0];
+	  		if(platform){platform=platform.childNodes[0].nodeValue;}
+
+	  		var year=item.getElementsByTagName("ReleaseDate")[0];
+	  		if(year){year=year.childNodes[0].nodeValue.substr(-4);}
+
+	  		var baseimgurl=xml.getElementsByTagName("baseImgUrl")[0];
+	  		if(baseimgurl){baseimgurl=baseimgurl.childNodes[0].nodeValue;}
+
+
+	  		var images=item.getElementsByTagName("boxart");
+	  		var image="";
+	  		for(var b=0;b<images.length;b++){
+	  			if(images[b].getAttribute("side")=="front"){
+		  			image=baseimgurl+images[b].childNodes[0].nodeValue;
+	  			}
+	  		}
+
+	  		var publisher=item.getElementsByTagName("Publisher")[0];
+	  		if(publisher){publisher=publisher.childNodes[0].nodeValue;}
+
+			var itm={
+				asin: asin,
+				isbn: "",
+				upc: "",
+				title: title,
+				year: year,
+				image: image,
+				fullImage: "",
+				director: "",
+				binding: "VideoGame",
+				author: "",
+				artist: "",
+				publisher: publisher,
+				platform: platform,
+				price: "",
+				provider: "gamesdb"
+			};
+			
+			this.searchResults.push(itm);
+
+		}
+		
+	}else{
+	
+	}
+
+  	if(this.doingSearch){
+	  	this.$.resultsList.punt();
+	  	this.openDialog({dialog:"resultsDialog"});
+  		this.$.awsSearchStatus.hide();
+  		this.$.resultsList.show();
+	  	this.doingSearch=false;
+	}
+
+  },
+  moviesSuccess: function(inSender,inResponse,inRequest){
+  	this.$.addItemSearch.setActive(false);
+  	//enyo.keyboard.setManualMode(true);
+  	//enyo.keyboard.hide();
+  	window.setTimeout(enyo.bind(this,function(){this.$.addItemInput.forceBlur();}),500);
+
+	this.log("got books");
+	
+	var j=inResponse;
+	this.log(j);
+	var items=j.products;
+	this.musicSource="discogs";
+	var itemsCount=items.length;
+	for(var i=0;i<itemsCount;i++){
+		var asin=(items[i].sku)? items[i].sku: "";
+		var isbn='';
+		var upc=(items[i].upc)? items[i].upc: "";
+		var title=(items[i].name)? items[i].name.replace(" - DVD","").replace(" - Blu-ray Disc","").replace("Blu-ray 3D",""): "";
+		var tparts=title.split("[");
+		var title=tparts[0];
+		var year=(items[i].releaseDate)? items[i].releaseDate.substr(0,4): "";
+		var image=(items[i].thumbnailImage)? items[i].thumbnailImage: "";
+		var fullImage=(items[i].image)? items[i].image: "";
+		var director="";
+		var author='';
+		var artist=(items[i].artistName)? items[i].artistName: "";
+		var publisher=(items[i].studio)? items[i].studio: "";
+		var price=(items[i].regularPrice)? items[i].regularPrice: "";
+		var format=(items[i].format)? items[i].format: "DVD";
+		
+
+		var itm={
+			asin: asin,
+			isbn: isbn,
+			upc: upc,
+			title: title,
+			year: year,
+			image: image,
+			fullImage: fullImage,
+			director: director,
+			binding: format,
+			author: author,
+			artist: artist,
+			publisher: publisher,
+			platform: "",
+			price: price,
+			provider: "bestbuy"
+		};
+		
+		this.searchResults.push(itm);
+
+	}
+
+  	if(this.doingSearch){
+  		this.$.resultsBranding.setSrc("images/"+this.getBrandingLogo("bestbuy"));
+  		this.$.resultsBranding.href=this.getBrandingLink("bestbuy");
+	  	this.$.resultsList.punt();
+	  	this.openDialog({dialog:"resultsDialog"});
+  		this.$.awsSearchStatus.hide();
+  		this.$.resultsList.show();
+	  	this.doingSearch=false;
+	}
+	
+	  
+  },
+  musicSuccess: function(inSender,inResponse,inRequest){
+  	this.$.addItemSearch.setActive(false);
+  	//enyo.keyboard.setManualMode(true);
+  	//enyo.keyboard.hide();
+  	window.setTimeout(enyo.bind(this,function(){this.$.addItemInput.forceBlur();}),500);
+
+	this.log("got music");
+	
+	var j=inResponse;
+	this.log(j);
+	var items=j.results;
+	var itemsCount=items.length;
+	if(itemsCount==0){
+		if(this.isNumber(this.$.addItemInput.getValue())){ //barcode
+		  	var upcData={
+		  		request_type: 3,
+		  		access_token: '84489762-578D-47FF-8D02-D6012A7FAD25',
+		  		upc: this.$.addItemInput.getValue()
+		  	};
+			this.$.barcodeAPI.call(upcData);
+		}else{
+			this.musicSource="bestbuy";
+			this.searchItems(this.$.addItemSearch);
+		}
+	}else{
+		this.musicSource="discogs";
+		for(var i=0;i<itemsCount;i++){
+			var key=items[i].id;
+			var isbn='';
+			var upc='';
+			var fulltitle=items[i].title;
+			var tparts=fulltitle.split(" - ");
+			var artist=tparts[0];
+			var title=tparts[1];
+			var year=(items[i].year)? items[i].year: "";
+			var image=(items[i].thumb)? items[i].thumb: "";
+			var fullImage= "";
+			var author='';
+			var publisher=(items[i].label)? items[i].label: "";
+			var platform=(items[i].format)? items[i].format[0]: "";
+			
+		
+			var itm={
+				asin: key,
+				isbn: isbn,
+				upc: "",
+				title: title,
+				year: year,
+				image: image,
+				fullImage: fullImage,
+				director: "",
+				binding: platform,
+				author: author,
+				artist: artist,
+				publisher: publisher,
+				platform: "",
+				price: "",
+				provider: "discogs"
+			};
+			
+			this.searchResults.push(itm);
+		}
+	
+	  	if(this.doingSearch){
+		  	this.$.resultsList.punt();
+		  	this.openDialog({dialog:"resultsDialog"});
+	  		this.$.awsSearchStatus.hide();
+	  		this.$.resultsList.show();
+		  	this.doingSearch=false;
+		}
+	}	  
+  },
+  doBBSearch: function(inSender){
+  	this.musicSource="bestbuy";
+  	this.searchItems(this.$.addItemSearch);
+  	this.$.doBBSearch.hide();
+  },
+  barcodeSuccess: function(inSender,inResponse,inRequest){
+  	var item=inResponse["0"];
+  	if(item){
+  		var titleParts=item.productname.split("-");
+  		var title=enyo.string.trim(titleParts[0]);
+  		this.$.addItemInput.setValue(title);
+  		this.searchItems(this.$.addItemSearch);
+  	}else{
+		this.showErrorDialog('Couldn\'t find any products with that barcode. Try searching by the item\'s title.');
+  	}
+  },
+  bookSuccess: function(inSender,inResponse,inRequest){
+  	this.$.addItemSearch.setActive(false);
+  	//enyo.keyboard.setManualMode(true);
+  	//enyo.keyboard.hide();
+  	window.setTimeout(enyo.bind(this,function(){this.$.addItemInput.forceBlur();}),500);
+
+	this.log("got books");
+	
+	var j=inResponse;
+	this.log(j);
+	var items=j.docs;
+	var itemsCount=items.length;
+	for(var i=0;i<itemsCount;i++){
+		if(!items[i].isbn){
+			items[i].isbn=[{}];
+		}
+		for(var j=0,isbnCount=items[i].isbn.length;j<isbnCount;j++){
+			var isbn=items[i].isbn[j];
+			var key=(items[i].key)? items[i].key: isbn;
+			var year=(items[i].first_publish_year)? items[i].first_publish_year: "";
+			var image=(items[i].isbn)? "http://covers.openlibrary.org/b/isbn/"+isbn+"-S.jpg": "http://covers.openlibrary.org/b/id/"+items[i].cover_i+"-S.jpg";
+			var fullImage=(items[i].isbn)? "http://covers.openlibrary.org/b/isbn/"+isbn+"-M.jpg": "http://covers.openlibrary.org/b/id/"+items[i].cover_i+"-M.jpg";
+			var author=(items[i].author_name)? items[i].author_name[0]: "";
+			var publisher=(items[i].publisher)? items[i].publisher[0]: "";
+			var itm={
+				asin: key,
+				isbn: isbn,
+				upc: "",
+				title: items[i].title,
+				year: year,
+				image: image,
+				fullImage: fullImage,
+				director: "",
+				binding: "Books",
+				author: author,
+				artist: "",
+				publisher: publisher,
+				platform: "",
+				price: "",
+				provider: "openlibrary"
+			};
+			
+			this.searchResults.push(itm);
+		}
+	}
+	  
+  	if(this.doingSearch){
+	  	this.$.resultsList.punt();
+	  	this.openDialog({dialog:"resultsDialog"});
+  		this.$.awsSearchStatus.hide();
+  		this.$.resultsList.show();
+	  	this.doingSearch=false;
+	}
+	
   },
   isNumber: function(n) {
   	return !isNaN(parseFloat(n)) && isFinite(n);
+  },
+  fancyProvider: function(provider){
+  	//converts provider string to user friendly text
+  	var providers={
+  		"openlibrary":"OpenLibrary.org",
+  		"gamesdb":"TheGamesDB.net",
+  		"bestbuy":"BestBuy Open Products",
+  		"discogs":"Discogs"
+  	};
+  	
+  	if(providers[provider]){
+  		return providers[provider];
+  	}else{
+  		return provider;
+  	}
+  },
+  getBrandingLogo: function(provider){
+  	var logos={
+  		"openlibrary":"openlib.png",
+  		"gamesdb":"gamesdb.png",
+  		"bestbuy":"bestbuy.gif",
+  		"discogs":"discogs.png"
+  	};
+ 
+ 	return logos[provider];
+  },
+  getBrandingLink: function(provider){
+  	var logos={
+  		"openlibrary":"http://openlibrary.org/developers",
+  		"gamesdb":"http://thegamesdb.net/api/",
+  		"bestbuy":"http://bbyopen.com/developer",
+  		"discogs":"http://www.discogs.com/developers/"
+  	};
+ 
+ 	return logos[provider];
   },
   resetSearch: function(inSender, inEvent){
   	this.$.librarySearch.setValue('');
@@ -2062,9 +3446,13 @@ enyo.kind({
   		//this.log(row);
   	
   		if(row.year){
-  			if(row.year.indexOf("-")>-1){
-			  	var d=row.year.split("-");
-  				var y=d[0];
+  			if(row.year.indexOf){
+	  			if(row.year.indexOf("-")>-1){
+				  	var d=row.year.split("-");
+  					var y=d[0];
+  				}else{
+  					var y=row.year;
+  				}
   			}else{
   				var y=row.year;
   			}
@@ -2098,6 +3486,13 @@ enyo.kind({
   		
   		if(row.price){
   			extra.push(row.price);
+  		}
+  		
+  		if(row.isbn){
+  			extra.push("ISBN: "+(row.isbn)+"");
+  		}
+  		if(row.provider){
+  			extra.push("from "+this.fancyProvider(row.provider)+"");
   		}
   		
   		//this.log(extra);
@@ -2138,6 +3533,9 @@ enyo.kind({
   	this.log("~~~~~~~~~~~~~adding to db");
   	var row=this.searchResults[inEvent.rowIndex];
   	this.rowData=row;
+  	
+  	
+  	
   	//this.log(row);
   	
   	//first, see if this is already in the library
@@ -2177,14 +3575,100 @@ enyo.kind({
 	}	
 	
   },
+  aiSaveItem: function(inSender, inEvent){
+  	//manually add an item
+  	//first, upload the image
+  	this.log("going to save...");
+  	inSender.setActive(true);
+  	
+  	//fetch a new ASIN
+	this.$.woodenrowsAPI.setMethod("GET");
+	this.$.woodenrowsAPI.call({method:"library.getASIN"});
+	
+  	
+  },
+  onUploadSuccess:function(inSender,inResponse,inRequest){
+  		this.log("upload ok");
+//		this.log(inResponse.responseString);
+ enyo.log("Upload success, results=" + enyo.json.stringify(inResponse));
+
+		if(inResponse.completed){
+			var j=enyo.json.parse(inResponse.responseString);
+			if(j.result!=undefined){
+				var url=j.result.url;
+				
+				this.newItemImage=url;
+
+				//time to save the item
+				//build up a fake rowData item
+				var binding='';
+				switch(this.searchType){
+					case "DVD":
+						binding=this.$.aiMovieBinding.getValue();
+						break;
+					case "Music":
+						binding=this.$.aiMusicBinding.getValue();
+						break;
+					case "Books":
+						binding=this.$.aiBookBinding.getValue();
+						break;
+					case "VideoGames":
+						binding="VideoGame";
+						break;
+				}
+				
+				var platform=(this.searchType!="VideoGames")? "": this.$.aiPlatform.getValue();
+				this.rowData={
+					title: this.$.aiTitle.getValue(),
+					artist: this.$.aiArtist.getValue(),
+					author: this.$.aiAuthor.getValue(),
+					director: this.$.aiDirector.getValue(),
+					publisher: this.$.aiPublisher.getValue(),
+					platform: platform,
+					year: this.$.aiYear.getValue(),
+					upc: this.$.aiUPC.getValue(),
+					isbn: this.$.aiISBN.getValue(),
+					price: this.$.aiPrice.getValue(),
+					extra: this.$.aiComment.getValue(),
+					image: this.newItemImage,
+					provider: "woodenrows",
+					binding: binding,
+					asin: this.newasin,
+					isnew:true
+				};
+				this.saveItem();
+		
+				//image upload okay. let's fetch an ASIN for the item
+			}else{
+				//console.log("no url");
+				this.newItemImage='';
+				//this.onUploadFailure(inSender,inResponse,inRequest);
+			}
+		}  	
+  },
+  onUploadFailure:function(inSender,inResponse,inRequest){
+  	this.log("upload failed");
+ enyo.log("Upload failed, results=" + enyo.json.stringify(inResponse));  	
+  	this.log(inResponse.responseString);
+  },
+  onUploadResponse:function(inSender,inResponse,inRequest){
+  	this.log("upload response");
+ enyo.log("Upload response, results=" + enyo.json.stringify(inResponse));  	
+  	this.log(inResponse.responseString);
+  },
   saveItem: function(){
   		row=this.rowData;
+  		this.log(row);
 	  	var artist=this.sqlEscape(row.artist);
 	  	var asin=row.asin;
+	  	var isbn=row.isbn;
+	  	this.log("isbn="+isbn);
+	  	var provider=row.provider;
+	  	this.log("provider="+provider);
 	  	var author=this.sqlEscape(row.author);
 	  	var binding=this.sqlEscape(row.binding);
 	  	var director=this.sqlEscape(row.director);
-	  	var image=this.sqlEscape(row.image);
+	  	var image=(row.fullImage)? this.sqlEscape(row.fullImage): this.sqlEscape(row.image);
 	  	var platform=this.sqlEscape(row.platform);
 	  	var price=this.sqlEscape(row.price);
 	  	var publisher=this.sqlEscape(row.publisher);
@@ -2192,6 +3676,7 @@ enyo.kind({
 	  	var upc=this.sqlEscape(row.upc);
 	  	var year=row.year;
 	  	var type=this.searchType;
+	  	var isnew=row.isnew || "";
 	  	
 	  	//create title to sort by
 	  	var title_sort=row.title;
@@ -2220,7 +3705,7 @@ enyo.kind({
 				asin: asin,
 				binding: binding,
 				director: director,
-				image: row.image,
+				image: image,
 				platform: platform,
 				price: price,
 				publisher: publisher,
@@ -2231,7 +3716,10 @@ enyo.kind({
 				lent: 0,
 				lentTo: '',
 				lentOn: null,
-				title_sort: title_sort
+				title_sort: title_sort,
+				isbn: isbn,
+				provider: provider,
+				isnew:isnew
 			};
 			//this.log(data);
 			this.$.woodenrowsAPI.setMethod("POST");
@@ -2239,14 +3727,15 @@ enyo.kind({
 		}
 		
 	  	
-	  	var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort,shelves) VALUES ("'+artist+'", "'+asin+'", "'+author+'", "'+binding+'", "'+director+'", "'+image+'", "'+platform+'", "'+price+'", "'+publisher+'", "'+title+'", "'+upc+'", "'+year+'","","'+type+'","'+title_sort+'","")';
+	  	var sql='INSERT INTO library (artist,asin,author,binding,director,image,platform,price,publisher,title,upc,year,extra,type,title_sort,shelves,isbn,provider) VALUES ("'+artist+'", "'+asin+'", "'+author+'", "'+binding+'", "'+director+'", "'+image+'", "'+platform+'", "'+price+'", "'+publisher+'", "'+title+'", "'+upc+'", "'+year+'","","'+type+'","'+title_sort+'","","'+isbn+'","'+provider+'")';
 	  	
-	  	//this.log(sql);
+	  	this.log(sql);
 		this.$.emptyLibrary.hide();
 	  	
 		this.db.transaction( 
 		    enyo.bind(this,(function (transaction) { 
-	        	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler)); 
+		    	this.errorfrom="save item";
+	        	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler,"save item")); 
 	    	})) 
 		);  
 		
@@ -2477,12 +3966,13 @@ enyo.kind({
 	
 	oauth.setAccessToken([this.shares.twitter.token,this.shares.twitter.secret]);  
 	var tweetData={status: this.tweet};
+	this.errorfrom="twitterfail";
 	oauth.request({
 		method: "POST",
 		url: "http://api.twitter.com/1/statuses/update.json",
 		data: tweetData,
 		success: enyo.bind(this,"twitterSuccess"),
-		failure: enyo.bind(this,"errorHandler")
+		failure: enyo.bind(this,"errorHandler","twitter fail")
 	});
 	
   },
@@ -2577,8 +4067,9 @@ enyo.kind({
   	this.log(inResponse);
   },
   sqlEscape: function(str){
-  	if(str){
-	  	return str.replace(/&nbsp;/g," ").replace(/"/g,'&quot;');
+  	//this.log(str);
+  	if(str!=undefined && str!="" && !this.isNumber(str)){
+	  	return str.replace(/\&nbsp\;/g," ").replace(/\"/g,'&quot;');
 	}else{
 		return "";
 	}
@@ -2594,6 +4085,56 @@ enyo.kind({
   	if(inSender.dialog=="addItemDialog"){
   			this.$.emptyLibrary.hide();
   	}
+  	
+  	if(inSender.dialog=="manualAddDialog"){
+		switch(this.searchType){
+			case "Books":
+				this.$.aiArtistRow.hide();
+				this.$.aiAuthorRow.show();
+				this.$.aiDirectorRow.hide();
+				this.$.aiPublisherRow.show();
+				this.$.aiPlatformRow.hide();
+				this.$.aiISBNRow.show();
+				this.$.aiMusicBindingRow.hide();
+				this.$.aiMovieBindingRow.hide();
+				this.$.aiBookBindingRow.show();
+				break;
+			case "Music":
+				this.$.aiArtistRow.show();
+				this.$.aiAuthorRow.hide();
+				this.$.aiDirectorRow.hide();
+				this.$.aiPublisherRow.show();
+				this.$.aiPlatformRow.hide();
+				this.$.aiISBNRow.hide();
+				this.$.aiMusicBindingRow.show();
+				this.$.aiMovieBindingRow.hide();
+				this.$.aiBookBindingRow.hide();
+				break;
+			case "VideoGames":
+				this.$.aiArtistRow.hide();
+				this.$.aiAuthorRow.hide();
+				this.$.aiDirectorRow.hide();
+				this.$.aiPublisherRow.show();
+				this.$.aiPlatformRow.show();
+				this.$.aiISBNRow.hide();
+				this.$.aiMusicBindingRow.hide();
+				this.$.aiMovieBindingRow.hide();
+				this.$.aiBookBindingRow.hide();
+				break;
+			case "DVD":
+				this.$.aiArtistRow.hide();
+				this.$.aiAuthorRow.hide();
+				this.$.aiDirectorRow.show();
+				this.$.aiPublisherRow.show();
+				this.$.aiPlatformRow.hide();
+				this.$.aiISBNRow.hide();
+				this.$.aiMusicBindingRow.hide();
+				this.$.aiMovieBindingRow.show();
+				this.$.aiBookBindingRow.hide();
+				break;
+		}
+  	}
+  	
   	var p=this.$[inSender.dialog];
   	if(p){
   		p.openAtCenter();

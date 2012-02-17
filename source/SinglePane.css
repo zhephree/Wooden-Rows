@@ -131,6 +131,18 @@
   margin-left: -8px;
 }
 
+.vinyl-img {
+  width: 116px;
+  padding-left: 0px;
+}
+.vinyl {
+  width: 165px;
+  height: 200px;
+  display: block;
+  margin-top: -173px;
+  margin-left: -7px;
+}
+
 
 .book {
   width: 157px;
@@ -332,6 +344,18 @@
     padding-left: 15px;
 }
 .cd {
+    width: 82px !important;
+    height: 100px !important;
+    display: block;
+    margin-top: -85px !important;
+    margin-left: -8px;
+}
+
+.vinyl-img {
+    width: 58px !important;
+    padding-left: 15px;
+}
+.vinyl {
     width: 82px !important;
     height: 100px !important;
     display: block;
