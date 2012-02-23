@@ -166,6 +166,8 @@
 	border-width: 7px 29px 29px 25px;
 	-webkit-border-image: url(../images/default-overlay.png) 7 31 26 24 stretch;
 	margin-left: -20px;
+	max-width: 130px;
+	max-height: 160px;
 }
 
 .lent {

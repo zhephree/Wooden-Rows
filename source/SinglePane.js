@@ -13,6 +13,7 @@ enyo.kind({
 		{kind: "WebService", name:"moviesAPIMatch", url:"http://api.remix.bestbuy.com/v1/products",onSuccess:"moviesMatchSuccess", onFailure: "awsSearchFailure"},
 		{kind: "WebService", name:"moviesDetail", url:"http://api.remix.bestbuy.com/v1/products",onSuccess:"awsItemSuccess", onFailure: "awsSearchFailure"},
 		{kind: "WebService", name:"musicAPI", url:"http://api.discogs.com/database/search",onSuccess:"musicSuccess", onFailure: "awsSearchFailure"},
+		{kind: "WebService", name:"musicAPIMatch", url:"http://api.discogs.com/database/search",onSuccess:"musicMatchSuccess", onFailure: "awsSearchFailure"},
 		{kind: "WebService", name:"musicDetail", url:"http://api.discogs.com/database/releases",onSuccess:"awsItemSuccess", onFailure: "awsSearchFailure"},
 		{kind: "WebService", name:"barcodeAPI", url:"http://www.searchupc.com/handlers/upcsearch.ashx",onSuccess:"barcodeSuccess", onFailure: "awsSearchFailure"},
 		{kind: "WebService", name:"awsItem", url:"",onSuccess:"awsItemSuccess", onFailure: "awsItemFailure"},
@@ -283,6 +284,7 @@ enyo.kind({
             			{kind: "Button",caption:"Share",onclick:"shareItem", style:"background-color:transparent; color:#fff;"},
             			{flex:1},
             			{kind: "Button",caption:"Comment",onclick:"openDialog", dialog:"commentDialog", style:"background-color:transparent; color:#fff;"},
+            			{kind: "Button",caption:"Edit",name:"itemDetailEditButton",onclick:"doEditItem", style:"background-color:transparent; color:#fff;"},
             			{kind: "Button",caption:"Remove",onclick:"removeItem", className:"enyo-button-negative"}
             		]}
           		]}
@@ -293,11 +295,13 @@ enyo.kind({
 				{name: "maCurrentItemBox", flex:1,components:[
 					{kind: "Image",name:"maCurrentItemImage",src:"",style:"display:block;margin:0 auto; max-height: 200px"},
 					{kind:"HtmlContent",name:"maCurrentItemDetails"},
+					{kind: "Button", name:"maAdd", onclick:"maAddItem",caption:"Add Manually"},					
 					{kind: "Button", name:"maSkip", onclick:"maSkipItem",caption:"Skip This"}					
 				]},
 				{name: "maMatchedItemBox", flex:1,components:[
 					{kind: "Image",name:"maMatchedItemImage",src:"",style:"display:block;margin:0 auto; max-height: 200px"},
 					{kind:"HtmlContent",name:"maMatchedItemDetails"},
+					{kind: "Button", name:"maPrevMatch",caption:"Previous Match", onclick:"maPrevMatch"},
 					{kind: "Button", name:"maNextMatch",caption:"Next Match", onclick:"maNextMatch"},
 					{kind: "ActivityButton",name:"maUseMatch",caption:"Use This",className:"enyo-button-affirmative", onclick:"maUseMatch"}					
 				]}
@@ -685,6 +689,16 @@ enyo.kind({
 						this.$.syncSpinner.hide();
 						this.$.aiSaveItem.setActive(false);
 						break;
+					case "library.editItem":
+						if(this.isEditing){
+							this.$.syncSpinner.hide();
+							this.$.aiSaveItem.setActive(false);
+							this.closeDialog({dialog:"manualAddDialog"});
+							this.currentItem=this.itemBackUp;
+						  	enyo.job("reloadItem",enyo.bind(this,"displayItem"), 1000);
+							this.isEditing=false;
+						}
+						break;
 					case "library.deleteItem":
 						//this.log(inResponse.result.message);
 						//this.log(inResponse.result.itemId);
@@ -713,27 +727,36 @@ enyo.kind({
 					case "library.getASIN":
 						this.newasin=inResponse.result.asin;
 						
-						//uploadimage
-					  	switch(this.platform){
-					  		case "webos":
-					  			this.log("uploading in webos...");
-							    this.$.downloadManager.call(
-							       {
-							          fileName: this.uploadFile,
-							          url: 'http://woodenro.ws/api.php',
-							          fileLabel: "upload",
-							          postParameters: [
-									          	{key: "method",data:"image.upload",contentType:"text/plain"},		          
-									          	{key: "asin",data:this.newasin,contentType:"text/plain"},		          
-							          ]
-							       }
-							    );								
-					  			break;
-					  		default:
-					  			this.log("no matching platform actions");
-					  			break;
-					  	}
+						if(this.addDialogMode=="addfill"){
+							this.updateItem(this.newasin);
+						}else{
 						
+			
+							//uploadimage
+							if(this.uploadFile){
+							  	switch(this.platform){
+							  		case "webos":
+							  			this.log("uploading in webos...");
+									    this.$.downloadManager.call(
+									       {
+									          fileName: this.uploadFile,
+									          url: 'http://woodenro.ws/api.php',
+									          fileLabel: "upload",
+									          postParameters: [
+											          	{key: "method",data:"image.upload",contentType:"text/plain"},		          
+											          	{key: "asin",data:this.newasin,contentType:"text/plain"},		          
+									          ]
+									       }
+									    );								
+							  			break;
+							  		default:
+							  			this.log("no matching platform actions");
+							  			break;
+							  	}
+						  	}else{
+						  	
+						  	}
+						}					  							
 						break;
 				}
 				break;
@@ -1133,6 +1156,7 @@ enyo.kind({
 	    this.loadCount=0;
     	this.searchType="DVD";
     	this.filterBy='';
+    	this.addDialogMode="add";
     	this.musicSource="discogs";
 	    this.buildItemCells();
 	    
@@ -1248,7 +1272,8 @@ enyo.kind({
 	    
 	    
 	    //now we must check if they have old Amazon data in their library
-		var string = 'SELECT * FROM library WHERE image LIKE "%%ecx.images-amazon.com%%" OR image LIKE "%%images.amazon.com%%"';
+		//var string = 'SELECT * FROM library WHERE image LIKE "%%ecx.images-amazon.com%%" OR image LIKE "%%images.amazon.com%%"';
+		var string = 'SELECT * FROM library WHERE provider IS NULL';
 		//this.log("create table");
 	    this.db.transaction( 
 	        enyo.bind(this,(function (transaction) { 
@@ -1261,6 +1286,73 @@ enyo.kind({
 	    
 	    
 	    //this.log(enyo.getCookie("user"));
+	},
+	setupManualDialog: function(inSender,inEvent){
+		switch(this.addDialogMode){
+			case "edit":
+				this.$.aiTitle.setValue(this.editItem.title || '');this.log("1");
+				this.$.aiArtist.setValue(this.editItem.artist || '');this.log("2");
+				this.$.aiAuthor.setValue(this.editItem.author || '');this.log("3");
+				this.$.aiDirector.setValue(this.editItem.director || '');this.log("4");
+				this.$.aiPublisher.setValue(this.editItem.publisher || '');this.log("5");
+				this.$.aiPlatform.setValue(this.editItem.platform || '');this.log("6");
+				this.$.aiYear.setValue(this.editItem.year || '');this.log("7");
+				this.$.aiUPC.setValue(this.editItem.upc || '');this.log("8");
+				this.$.aiISBN.setValue(this.editItem.isbn || '');this.log("9");
+				this.$.aiPrice.setValue(this.editItem.price || '');this.log("10");
+				this.$.aiComment.setValue(this.editItem.comment || '');this.log("11");
+				
+				this.$.manualAddDialog.setCaption("Edit Item");
+				this.newItemImage=this.editItem.image || '';
+				this.uploadFile='';
+				this.$.aiImage.setSrc(this.newItemImage || "images/defaultadd.png")
+				
+				break;
+			case "add":
+				this.$.aiTitle.setValue('');
+				this.$.aiArtist.setValue('');
+				this.$.aiAuthor.setValue('');
+				this.$.aiDirector.setValue('');
+				this.$.aiPublisher.setValue('');
+				this.$.aiPlatform.setValue('');
+				this.$.aiYear.setValue('');
+				this.$.aiUPC.setValue('');
+				this.$.aiISBN.setValue('');
+				this.$.aiPrice.setValue('');
+				this.$.aiComment.setValue('');
+				this.newItemImage='';
+				this.uploadFile='';
+				this.$.manualAddDialog.setCaption("Manually Add Item");
+
+				break;
+			case "addfill":
+				this.$.aiTitle.setValue(this.editItem.title || '');this.log("1");
+				this.$.aiArtist.setValue(this.editItem.artist || '');this.log("2");
+				this.$.aiAuthor.setValue(this.editItem.author || '');this.log("3");
+				this.$.aiDirector.setValue(this.editItem.director || '');this.log("4");
+				this.$.aiPublisher.setValue(this.editItem.publisher || '');this.log("5");
+				this.$.aiPlatform.setValue(this.editItem.platform || '');this.log("6");
+				this.$.aiYear.setValue(this.editItem.year || '');this.log("7");
+				this.$.aiUPC.setValue(this.editItem.upc || '');this.log("8");
+				this.$.aiISBN.setValue(this.editItem.isbn || '');this.log("9");
+				this.$.aiPrice.setValue(this.editItem.price || '');this.log("10");
+				this.$.aiComment.setValue(this.editItem.comment || '');this.log("11");
+				
+				this.$.manualAddDialog.setCaption("Manually Add Item");
+				this.newItemImage=this.editItem.image || '';
+				this.uploadFile='';
+				this.$.aiImage.setSrc(this.newItemImage || "images/defaultadd.png")
+				
+				break;
+		}
+	},
+	doEditItem: function(inSender,inEvent){
+		this.addDialogMode="edit";this.log("a");
+		this.editItem=this.currentItem;this.log("b");
+		this.itemBackUp=this.currentItem;
+		this.searchType=this.editItem.type;this.log("c");
+
+		this.openDialog({dialog:"manualAddDialog"});
 	},
 	amazonDataHandler: function(transaction,results){
 		if(results){
@@ -1282,6 +1374,8 @@ enyo.kind({
 	},
 	loadMAItem: function(){
 		this.maIndex++;
+				this.musicSource="discogs";
+
 		this.$.maSearchInput.setValue('');
 		this.$.maSearchButton.setActive(false);
 		var item=this.amazonData.item(this.maIndex);
@@ -1298,8 +1392,16 @@ enyo.kind({
 		this.$.maMatchedItemImage.setSrc('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAQAIBRAA7');
 		this.maDoSearch(this.$.maSearchButton);
 	},
+	maAddItem: function(inSender,inEvent){
+		this.addDialogMode="addfill";this.log("a");
+		this.editItem=this.currentMAItem;this.log("b");
+		this.itemBackUp=this.currentMAItem;
+		this.searchType=this.editItem.type;this.log("c");
+
+		this.openDialog({dialog:"manualAddDialog"});	
+	},
 	maDoSearch: function(inSender,inEvent){
-		inSender.setActive(true);
+		if(inSender) inSender.setActive(true);
 		
 		var query=this.$.maSearchInput.getValue();
 		if(query==""){
@@ -1334,6 +1436,8 @@ enyo.kind({
 				}else{
 					var title=query;
 				}
+				title=title.replace(/(\([^(]+\))/gi,"");
+				
 				var url="http://api.remix.bestbuy.com/v1/products(search="+title+"&type=Movie)";
 				var data={
 					apiKey:'dqgzhcnnktw2a8yjruguxey4',
@@ -1342,12 +1446,41 @@ enyo.kind({
 				this.$.moviesAPIMatch.setUrl(url);
 				this.$.moviesAPIMatch.call(data);
 				break;
+			case "Music":
+				if(query.indexOf(":")>-1){
+					var p=query.split(":");
+					this.log(p);
+					var title=p[0];
+				}else{
+					var title=query;
+				}
+				
+				title=title.replace(/(\([^(]+\))/gi,"");
+				if(this.musicSource=="discogs"){
+					this.$.musicAPIMatch.call({q:title,type:'release',per_page:75});
+					//this.$.doBBSearch.show();
+
+				}else if(this.musicSource=="bestbuy"){
+					var url="http://api.remix.bestbuy.com/v1/products(search="+title+"&type=Music)";
+					var data={
+						apiKey:'dqgzhcnnktw2a8yjruguxey4',
+						format:'json'
+					};
+					this.$.moviesAPIMatch.setUrl(url);
+					this.$.moviesAPIMatch.call(data);
+				}
+				
+				break;
 		}
 		
 	},
 	loadMatchItem: function(){
 		this.maMatchIndex++;
 		var item=this.matchItems[this.maMatchIndex];
+		if(!item && this.currentMAItem.type=="Music" && this.musicSource=="discogs"){
+			this.musicSource="bestbuy";
+			this.maDoSearch();
+		}
 		this.matchedItem=item;
 		this.$.maMatchedItemImage.setSrc(item.image || item.fullImage);
 		var details='';
@@ -1384,6 +1517,62 @@ enyo.kind({
 			}
 		}
 		this.$.maMatchedItemDetails.setContent(details);
+	},
+	musicMatchSuccess: function(inSender,inResponse,inRequest){
+		this.$.maSearchButton.setActive(false);
+		var j=inResponse;
+		this.log(j);
+		var items=j.results;
+		var itemsCount=items.length;
+			  	this.matchItems=[];
+
+		if(itemsCount==0){
+			this.musicSource="bestbuy";
+			this.maDoSearch();
+			//this.log("redo search with best buy");
+		}else{
+			this.musicSource="discogs";
+			for(var i=0;i<itemsCount;i++){
+				var key=items[i].id;
+				var isbn='';
+				var upc='';
+				var fulltitle=items[i].title;
+				var tparts=fulltitle.split(" - ");
+				var artist=tparts[0];
+				var title=tparts[1];
+				var year=(items[i].year)? items[i].year: "";
+				var image=(items[i].thumb)? items[i].thumb: "";
+				var fullImage= "";
+				var author='';
+				var publisher=(items[i].label)? items[i].label: "";
+				var platform=(items[i].format)? items[i].format[0]: "";
+				
+			
+				var itm={
+					asin: key,
+					isbn: isbn,
+					upc: "",
+					title: title,
+					year: year,
+					image: image,
+					fullImage: fullImage,
+					director: "",
+					binding: platform,
+					author: author,
+					artist: artist,
+					publisher: publisher,
+					platform: "",
+					price: "",
+					provider: "discogs"
+				};
+				
+				this.matchItems.push(itm);
+			}
+			this.maMatchIndex=-1;
+			this.loadMatchItem();
+		
+		}	  
+		
 	},
 	moviesMatchSuccess: function(inSender,inResponse,inRequest){
 		this.$.maSearchButton.setActive(false);
@@ -1559,8 +1748,10 @@ enyo.kind({
 		//determine what has changed
 		var ci=this.currentMAItem;
 		var mi=this.matchedItem;
+		this.log(ci);
+		this.log(mi);
 		var itm={};
-		if(ci.asin!=mi.asin) itm.asin=mi.asin;
+		itm.asin=mi.asin;
 		if(ci.isbn!=mi.isbn && mi.isbn) itm.isbn=mi.isbn;
 		if(ci.upc!=mi.upc && mi.upc) itm.upc=mi.upc;
 		if(ci.title!=mi.title && mi.title) itm.title=mi.title;
@@ -1572,25 +1763,83 @@ enyo.kind({
 		if(ci.publisher!=mi.publisher && mi.publisher) itm.publisher=mi.publisher;
 		if(ci.platform!=mi.platform && mi.platform) itm.platform=mi.platform;
 		if(ci.price!=mi.price && mi.price) itm.price=mi.price;
-		if(ci.provider!=mi.provider && mi.provider) itm.provider=mi.provider;
+		itm.provider=mi.provider;
 		
  		
  		itm.token= this.userToken;
  		itm.method= 'library.editItem';
  		itm.owner= this.userId;
  		itm.oldasin= this.currentMAItem.asin;
+ 		this.log(itm);
  		
  		this.$.woodenrowsAPI.setMethod("POST");
  		this.$.woodenrowsAPI.call(itm);
  		
- 		//TODO: update locally, auto move to next item, allow manual add/edit
+ 		//TODO: allow manual add/edit
+ 		
+ 		//update local database
+ 		//var itmpre=enyo.mixin(itm,ci); //fill in existing properties from the current item
+ 		
+ 		//this.log(itmpre);
+ 		//create a base model of a full item to apply empty fields where needed
+ 		var itmmodel={
+ 			asin:'',
+ 			isbn:'',
+ 			upc:'',
+ 			title:'',
+ 			year:'',
+ 			image:'',
+ 			director:'',
+ 			author:'',
+ 			artist:'',
+ 			publisher:'',
+ 			platform:'',
+ 			price:'',
+ 			provider:''
+ 		};
+ 		
+ 		//loop through and delete any properties we already have, filling in some blanks from the current item
+ 		for(var k in itmmodel){
+			if(itm[k]){
+				//item already has this property
+			}else{
+				//item does not have this property
+				if(ci[k]){
+					//existing item has this data
+					itm[k]=ci[k];
+				}else{
+					//existing item doesn't have this data
+					itm[k]=itmmodel[k];
+				}
+			}
+ 		}
+ 		//var newitm=enyo.mixin(itmpre,itmmodel); //only filling in for missing values
+
+	  	var sqlpre='UPDATE library SET asin="{$asin}", isbn="{$isbn}", upc="{$upc}", title="{$title}", year="{$year}", image="{$image}", director="{$director}", author="{$author}", artist="{$artist}", publisher="{$publisher}", platform="{$platform}", price="{$price}", provider="{$provider}" WHERE asin="{$oldasin}"';
+	  	var sql=enyo.macroize(sqlpre,itm);
+	  	
+	  	this.log(sql);
+	  	
+		this.db.transaction( 
+		    enyo.bind(this,(function (transaction) { 
+		    	this.errorfrom="save item";
+	        	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler,"save item")); 
+	    	})) 
+		);  
 		
+		this.$.maUseMatch.setActive(false);
+ 		
+		this.loadMAItem();
 		
 	},
 	maSkipItem: function(inSender,inEvent){
 		this.loadMAItem();
 	},
 	maNextMatch: function(inSender,inEvent){
+		this.loadMatchItem();
+	},
+	maPrevMatch: function(inSender,inEvent){
+		this.maMatchIndex=this.maMatchIndex-2;
 		this.loadMatchItem();
 	},
 	onMenuButton: function(){
@@ -2008,9 +2257,12 @@ enyo.kind({
 			break;
 		case "woodenrows":
 			this.awsItemSuccess("woodenrows");
+			this.$.displayItemBranding.hide();
+
 			break;
 		default:
 			this.log("not a thing");
+			this.$.displayItemBranding.hide();		
 			break;
 	}
 	
@@ -2444,7 +2696,7 @@ enyo.kind({
 		rows.push(r);
 	}*/
 
-	var r={layoutKind: "HFlexLayout", components:[{content:this.sqlUnescape(this.currentItem.extra), flex:1},{content:"Comment",className:"enyo-label"}]};	
+	var r={layoutKind: "HFlexLayout", components:[{content:this.sqlUnescape(this.currentItem.extra || ''), flex:1},{content:"Comment",className:"enyo-label"}]};	
 	rows.push(r);
 
 	var provider=this.currentItem.provider;
@@ -2487,9 +2739,9 @@ enyo.kind({
   		"PlayStation 3":"ps3",
   		"PlayStation2":"dvd",
   		"PlayStation":"cd",
-  		"Sony PlayStation 3":"ps3",
-  		"Sony PlayStation2":"dvd",
-  		"Sony PlayStation":"cd",
+  		"Sony Playstation 3":"ps3",
+  		"Sony Playstation2":"dvd",
+  		"Sony Playstation":"cd",
   		"Sega Dreamcast":"cd"
   	};
 
@@ -3581,9 +3833,103 @@ enyo.kind({
   	this.log("going to save...");
   	inSender.setActive(true);
   	
-  	//fetch a new ASIN
-	this.$.woodenrowsAPI.setMethod("GET");
-	this.$.woodenrowsAPI.call({method:"library.getASIN"});
+  	switch(this.addDialogMode){
+  		case "edit":
+  			if(this.uploadFile==''){ //no new image to upload
+				//this.newItemImage=url;
+
+				//time to save the item
+				//build up a fake rowData item
+				var binding='';
+				switch(this.searchType){
+					case "DVD":
+						binding=this.$.aiMovieBinding.getValue();
+						break;
+					case "Music":
+						binding=this.$.aiMusicBinding.getValue();
+						break;
+					case "Books":
+						binding=this.$.aiBookBinding.getValue();
+						break;
+					case "VideoGames":
+						binding="VideoGame";
+						break;
+				}
+				
+				var platform=(this.searchType!="VideoGames")? "": this.$.aiPlatform.getValue();
+				this.rowData={
+					title: this.$.aiTitle.getValue(),
+					artist: this.$.aiArtist.getValue(),
+					author: this.$.aiAuthor.getValue(),
+					director: this.$.aiDirector.getValue(),
+					publisher: this.$.aiPublisher.getValue(),
+					platform: platform,
+					year: this.$.aiYear.getValue(),
+					upc: this.$.aiUPC.getValue(),
+					isbn: this.$.aiISBN.getValue(),
+					price: this.$.aiPrice.getValue(),
+					extra: this.$.aiComment.getValue(),
+					image: this.newItemImage,
+					binding: binding
+				};
+				this.updateItem();
+  				
+  			}else{ //gotta upload a new image
+  			
+  			}
+  			break;
+  		case "add":
+		  	//fetch a new ASIN
+			this.$.woodenrowsAPI.setMethod("GET");
+			this.$.woodenrowsAPI.call({method:"library.getASIN"});
+			break;
+  		case "addfill":
+  			if(this.uploadFile==''){ //no new image to upload
+				//this.newItemImage=url;
+
+				//time to save the item
+				//build up a fake rowData item
+				var binding='';
+				switch(this.searchType){
+					case "DVD":
+						binding=this.$.aiMovieBinding.getValue();
+						break;
+					case "Music":
+						binding=this.$.aiMusicBinding.getValue();
+						break;
+					case "Books":
+						binding=this.$.aiBookBinding.getValue();
+						break;
+					case "VideoGames":
+						binding="VideoGame";
+						break;
+				}
+				
+				var platform=(this.searchType!="VideoGames")? "": this.$.aiPlatform.getValue();
+				this.rowData={
+					title: this.$.aiTitle.getValue(),
+					artist: this.$.aiArtist.getValue(),
+					author: this.$.aiAuthor.getValue(),
+					director: this.$.aiDirector.getValue(),
+					publisher: this.$.aiPublisher.getValue(),
+					platform: platform,
+					year: this.$.aiYear.getValue(),
+					upc: this.$.aiUPC.getValue(),
+					isbn: this.$.aiISBN.getValue(),
+					price: this.$.aiPrice.getValue(),
+					extra: this.$.aiComment.getValue(),
+					image: this.newItemImage,
+					binding: binding
+				};
+  				
+  			}else{ //gotta upload a new image
+  			
+  			}
+		  	//fetch a new ASIN
+			this.$.woodenrowsAPI.setMethod("GET");
+			this.$.woodenrowsAPI.call({method:"library.getASIN"});
+  			break;
+  	}
 	
   	
   },
@@ -3763,6 +4109,110 @@ enyo.kind({
 		}else{
 			//this.log("not posting to fb");
 		}
+  },
+  updateItem: function(asin){
+  		var ci=this.editItem;
+  		var mi=this.rowData;
+ 		//create a base model of a full item to apply empty fields where needed
+ 		var itmmodel={
+ 			asin:'',
+ 			isbn:'',
+ 			upc:'',
+ 			title:'',
+ 			year:'',
+ 			image:'',
+ 			director:'',
+ 			author:'',
+ 			artist:'',
+ 			publisher:'',
+ 			platform:'',
+ 			price:'',
+ 			provider:''
+ 		};
+ 		//loop through and delete any properties we already have, filling in some blanks from the current item
+ 		for(var k in itmmodel){
+			if(ci[k]){
+				//item already has this property
+			}else{
+				//item does not have this property
+					//existing item doesn't have this data
+					ci[k]=itmmodel[k];
+			}
+			if(mi[k]){
+				//item already has this property
+			}else{
+				//item does not have this property
+					//existing item doesn't have this data
+					mi[k]=itmmodel[k];
+			}
+ 		}
+  		
+		var itm={};
+		if(this.addDialogMode=="addfill"){
+			itm.asin=asin;
+			itm.provider="woodenrows";
+		}else{
+			itm.asin=mi.asin || ci.asin;	
+			itm.provider=mi.provider;
+		}
+		if(ci.isbn!=mi.isbn && mi.isbn) itm.isbn=mi.isbn;
+		if(ci.upc!=mi.upc && mi.upc) itm.upc=mi.upc;
+		if(ci.title!=mi.title && mi.title) itm.title=mi.title;
+		if(ci.year!=mi.year && mi.year) itm.year=mi.year;
+		if(ci.image!=mi.image && mi.image) itm.image=mi.image;
+		if(ci.director!=mi.director && mi.director) itm.director=mi.director;
+		if(ci.author!=mi.author && mi.author) itm.author=mi.author;
+		if(ci.artist!=mi.artist && mi.artist) itm.artist=mi.artist;
+		if(ci.publisher!=mi.publisher && mi.publisher) itm.publisher=mi.publisher;
+		if(ci.platform!=mi.platform && mi.platform) itm.platform=mi.platform;
+		if(ci.price!=mi.price && mi.price) itm.price=mi.price;
+		
+ 		
+ 		itm.token= this.userToken;
+ 		itm.method= 'library.editItem';
+ 		itm.owner= this.userId;
+ 		itm.oldasin= this.editItem.asin;
+ 		this.isEditing=true;
+ 		this.log(itm);
+ 		
+ 		this.$.woodenrowsAPI.setMethod("POST");
+ 		this.$.woodenrowsAPI.call(itm);
+ 		
+ 		//TODO: allow manual add/edit
+ 		
+ 		//update local database
+ 		//var itmpre=enyo.mixin(itm,ci); //fill in existing properties from the current item
+ 		
+ 		//this.log(itmpre);
+ 		
+ 		//loop through and delete any properties we already have, filling in some blanks from the current item
+ 		for(var k in itmmodel){
+			if(itm[k]){
+				//item already has this property
+			}else{
+				//item does not have this property
+				if(ci[k]){
+					//existing item has this data
+					itm[k]=ci[k];
+				}else{
+					//existing item doesn't have this data
+					itm[k]=itmmodel[k];
+				}
+			}
+ 		}
+ 		//var newitm=enyo.mixin(itmpre,itmmodel); //only filling in for missing values
+
+	  	var sqlpre='UPDATE library SET asin="{$asin}", isbn="{$isbn}", upc="{$upc}", title="{$title}", year="{$year}", image="{$image}", director="{$director}", author="{$author}", artist="{$artist}", publisher="{$publisher}", platform="{$platform}", price="{$price}", provider="{$provider}" WHERE asin="{$oldasin}"';
+	  	var sql=enyo.macroize(sqlpre,itm);
+	  	
+	  	this.log(sql);
+	  	
+		this.db.transaction( 
+		    enyo.bind(this,(function (transaction) { 
+		    	this.errorfrom="save item";
+	        	transaction.executeSql(sql, [], enyo.bind(this,this.createRecordDataHandler), enyo.bind(this,this.errorHandler,"save item")); 
+	    	})) 
+		);  
   },
   shareItem: function(inSender,inEvent){
   	this.$.shareMenu.openAtControl(inSender,{top: -45});
@@ -4083,6 +4533,7 @@ enyo.kind({
   },
   openDialog: function(inSender){
   	if(inSender.dialog=="addItemDialog"){
+  			this.addDialogMode="add";
   			this.$.emptyLibrary.hide();
   	}
   	
