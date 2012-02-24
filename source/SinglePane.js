@@ -254,6 +254,9 @@ enyo.kind({
 			{name:"awsSearchStatus", content:"Loading results...",style:"text-align:center;"},
 			{kind:"HFlexBox", components:[
 				{kind: "Button", caption: "Close", onclick:"closeDialog", dialog:"resultsDialog", flex:1},
+				{content:" "},
+				{kind: "CheckBox", name: "resultsStayOpen"},
+				{content:" Stay Open"},
 				{kind: "Button",caption:"Try BestBuy",onclick:"doBBSearch",name:"doBBSearch"},
 				{kind: "Image", name:"resultsBranding", href:"", src:"", width:"125px", onclick:"goToLink"}
 			]}
@@ -367,6 +370,16 @@ enyo.kind({
 			{kind: "Button", name:"saveComment", caption: "Save", onclick:"saveComment", dialog:"commentDialog"},
 			{kind: "Button", caption: "Remove Comment", onclick:"removeComment", dialog:"commentDialog", className:"enyo-button-negative"},
 			{kind: "Button", caption: "Cancel", onclick:"closeDialog", dialog:"commentDialog"}
+		]},
+		{kind: "ModalDialog", layoutKind:"VFlexLayout",name:"addShelfDialog", scrim:true, caption: "Add to Shelf", width: "400px", height:"500px",onOpen:"addShelfOpened",components:[
+			{kind:"Scroller",flex:1, components:[
+	        	{kind:"RowGroup", caption:"", components:[
+	        		{kind:"Input",name:"addShelfInput", oninput:"", hint:"Type the name of a new shelf..."},
+	        	]},
+				{kind: "Button", name:"saveComment", caption: "Save", onclick:"saveComment", dialog:"commentDialog"},
+				{kind: "Button", caption: "Remove Comment", onclick:"removeComment", dialog:"commentDialog", className:"enyo-button-negative"},
+				{kind: "Button", caption: "Cancel", onclick:"closeDialog", dialog:"addShelfDialog"}
+			]}
 		]},
 		{kind: "ModalDialog", name:"lendDialog", scrim:true, caption: "Lend This Item", width: "600px",onOpen:"lendOpened",components:[
 	        	{kind:"RowGroup", caption:"", components:[
@@ -2183,7 +2196,7 @@ enyo.kind({
   	this.currentHoldIndex=idx;
   	this.currentHoldElement=inSender;
   	
-  	
+  	//this.$.cellHoldMenu.openAtEvent(inEvent);	
   },
   displayItem: function(item){
   	var item=(item)? item: this.data[this.currentIndex];
@@ -2193,7 +2206,7 @@ enyo.kind({
   	var creator=item.author || item.artist || item.director || item.publisher || "Unknown";
   	
   	this.$.detailItemCreator.setContent(creator);
-  	this.$.detailItemImage.setSrc(item.image.replace("._SL160_","").replace("-M","-L"));
+  	this.$.detailItemImage.setSrc(item.image.replace("._SL160_","").replace("-M.","-L.").replace("-S.","-L."));
   	this.$.detailItemDetails.destroyControls();
 
 	if(item.lent=="1"){
@@ -2262,6 +2275,7 @@ enyo.kind({
 			break;
 		default:
 			this.log("not a thing");
+			this.awsItemSuccess("woodenrows");
 			this.$.displayItemBranding.hide();		
 			break;
 	}
@@ -2844,6 +2858,9 @@ enyo.kind({
 	  enyo.windows.addBannerMessage("Woohoo! Got your stuff back!","{}");
 
   },
+  addToShelf: function(inSender,inEvent){
+  	this.openDialog({dialog:"addShelfDialog"});	
+  },
   removeItem: function(inSender, inEvent){
   	//this.log("showing dialog...");
         this.showConfirmDialog("Are you sure you want to remove <i>"+this.currentItem.title+"</i> from your library? This cannot be undone.","doRemoveItem");  	
@@ -2914,11 +2931,13 @@ enyo.kind({
   	this.currentItem.extra=enyo.json.stringify(extra);
   },
   contactClicked: function(a,b){
-  	//this.log(a);
-  	//this.log(b);
-  	if(a.name){
+  	this.log(a);
+  	this.log(b);
+  	if(a.emails){
   		var b=a;
   	}
+  	
+  	this.log(b.name);
   	
   	var lname=b.name.familyName;
   	var fname=b.name.givenName;
@@ -2926,10 +2945,17 @@ enyo.kind({
   	
   	this.selectedContact=name;
   	
-  	//this.log(name);
-  	this.$.pickContact.close();
-  	this.$.pgPickContact.closePeoplePicker();
+
+  	
+  	this.log(name);
+  	if(this.platform=="webos"){
+	  	this.$.pickContact.close();
+	}else{
+	  	//this.$.pgPickContact.closePeoplePicker();
+	}
 	
+	
+	this.log("ugh");
 	this.showConfirmDialog("Are you sure you want to lend <i>"+this.currentItem.title+"</i> to <b>"+name+"</b>?","lendItemToContact");
   },
   saveLend: function(inSender, inEvent){
@@ -3445,7 +3471,7 @@ enyo.kind({
 			var isbn=items[i].isbn[j];
 			var key=(items[i].key)? items[i].key: isbn;
 			var year=(items[i].first_publish_year)? items[i].first_publish_year: "";
-			var image=(items[i].isbn)? "http://covers.openlibrary.org/b/isbn/"+isbn+"-S.jpg": "http://covers.openlibrary.org/b/id/"+items[i].cover_i+"-S.jpg";
+			var image=(items[i].isbn)? "http://covers.openlibrary.org/b/isbn/"+isbn+"-M.jpg": "http://covers.openlibrary.org/b/id/"+items[i].cover_i+"-M.jpg";
 			var fullImage=(items[i].isbn)? "http://covers.openlibrary.org/b/isbn/"+isbn+"-M.jpg": "http://covers.openlibrary.org/b/id/"+items[i].cover_i+"-M.jpg";
 			var author=(items[i].author_name)? items[i].author_name[0]: "";
 			var publisher=(items[i].publisher)? items[i].publisher[0]: "";
@@ -3875,7 +3901,29 @@ enyo.kind({
 				this.updateItem();
   				
   			}else{ //gotta upload a new image
-  			
+  				//build filename
+  				var fn=this.userId+"-"+this.editItem.asin;
+  				
+			  	switch(this.platform){
+			  		case "webos":
+			  			this.log("uploading in webos...");
+					    this.$.downloadManager.call(
+					       {
+					          fileName: this.uploadFile,
+					          url: 'http://woodenro.ws/api.php',
+					          fileLabel: "upload",
+					          postParameters: [
+							          	{key: "method",data:"image.upload",contentType:"text/plain"},		          
+							          	{key: "asin",data:fn,contentType:"text/plain"},		          
+					          ]
+					       }
+					    );								
+			  			break;
+			  		default:
+			  			this.log("no matching platform actions");
+			  			break;
+			  	}
+
   			}
   			break;
   		case "add":
@@ -3964,6 +4012,8 @@ enyo.kind({
 				}
 				
 				var platform=(this.searchType!="VideoGames")? "": this.$.aiPlatform.getValue();
+				var asin=(this.addDialogMode=="add")? this.newasin: this.editItem.asin;
+				var isnew=(this.addDialogMode=="add")? true: false;
 				this.rowData={
 					title: this.$.aiTitle.getValue(),
 					artist: this.$.aiArtist.getValue(),
@@ -3979,10 +4029,15 @@ enyo.kind({
 					image: this.newItemImage,
 					provider: "woodenrows",
 					binding: binding,
-					asin: this.newasin,
-					isnew:true
+					asin: asin,
+					isnew:isnew
 				};
-				this.saveItem();
+				
+				if(this.addDialogMode=="add"){
+					this.saveItem();
+				}else{
+					this.updateItem();
+				}
 		
 				//image upload okay. let's fetch an ASIN for the item
 			}else{
@@ -4036,9 +4091,15 @@ enyo.kind({
 	  	
 	  	this.addedItemASIN=asin;
 		this.$.addItemInput.setValue('');
-		
-	  	this.closeDialog({dialog:"resultsDialog"});
 	  	enyo.keyboard.setManualMode(false);
+
+		
+		if(this.$.resultsStayOpen.getChecked()){
+		
+		}else{
+			enyo.windows.addBannerMessage("Item added to your library!","{}");
+		  	this.closeDialog({dialog:"resultsDialog"});
+		}
 	
 	  	//this.closeDialog({dialog:"addItemDialog"});
 		this.doingSearch=false;
