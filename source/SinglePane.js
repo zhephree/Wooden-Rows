@@ -52,7 +52,9 @@ enyo.kind({
 			/*{caption:"Google+", onclick:"openShare", by:"google"},*/
 		]},		
 		{kind: "AppMenu", name:"theMenu", onOpen:"setUpFBMenu", components: [
-			{caption: "Share Activity on Facebook", onclick: "toggleFBSharing", name:"fbActivityMenu"}
+			{caption: "Share Activity on Facebook", onclick: "toggleFBSharing", name:"fbActivityMenu"},
+			{caption: "Wooden Rows on Twitter",onclick:"goToLink",href:"http://twitter.com/woodenrows"},
+			{caption: "Wooden Rows Website",onclick:"goToLink",href:"http://woodenro.ws"}
 		]},
 
 		{kind: "Menu", name: "filterItemsMenu", onBeforeOpen:"",components: []},		
@@ -1336,6 +1338,7 @@ enyo.kind({
 				this.newItemImage='';
 				this.uploadFile='';
 				this.$.manualAddDialog.setCaption("Manually Add Item");
+				this.$.aiImage.setSrc("images/defaultadd.png")
 
 				break;
 			case "addfill":
@@ -1387,7 +1390,7 @@ enyo.kind({
 	},
 	loadMAItem: function(){
 		this.maIndex++;
-				this.musicSource="discogs";
+		this.musicSource="discogs";
 
 		this.$.maSearchInput.setValue('');
 		this.$.maSearchButton.setActive(false);
@@ -1415,7 +1418,8 @@ enyo.kind({
 	},
 	maDoSearch: function(inSender,inEvent){
 		if(inSender) inSender.setActive(true);
-		
+		this.$.maUseMatch.setDisabled(true);		
+
 		var query=this.$.maSearchInput.getValue();
 		if(query==""){
 			query=this.currentMAItem.title;
@@ -1494,6 +1498,21 @@ enyo.kind({
 			this.musicSource="bestbuy";
 			this.maDoSearch();
 		}
+		
+		var pitem=this.matchItems[this.maMatchIndex-1];
+		var nitem=this.matchItems[this.maMatchIndex+1];
+		if(!pitem){
+			this.$.maPrevMatch.setDisabled(true);
+		}else{
+			this.$.maPrevMatch.setDisabled(false);
+		}
+		if(!nitem){
+			this.$.maNextMatch.setDisabled(true);
+		}else{
+			this.$.maNextMatch.setDisabled(false);
+		}
+		
+		
 		this.matchedItem=item;
 		this.$.maMatchedItemImage.setSrc(item.image || item.fullImage);
 		var details='';
@@ -1515,11 +1534,11 @@ enyo.kind({
 					}
 					if(cival.toLowerCase()==item[k].toLowerCase()){
 						val='<span style="color: #0f0;">'+item[k]+'</span>';
-						this.log("values are equal");
+						//this.log("values are equal");
 					}else{
 						if(cival!=""){
 							if(cival.toLowerCase().indexOf(item[k].toLowerCase())>-1 || item[k].toLowerCase().indexOf(cival.toLowerCase())>-1){
-								this.log("value in other value");
+								//this.log("value in other value");
 								val='<span style="color: #0f0;">'+item[k]+'</span>';			
 							}
 						}
@@ -1545,6 +1564,7 @@ enyo.kind({
 			//this.log("redo search with best buy");
 		}else{
 			this.musicSource="discogs";
+			this.$.maUseMatch.setDisabled(false);
 			for(var i=0;i<itemsCount;i++){
 				var key=items[i].id;
 				var isbn='';
@@ -1595,6 +1615,9 @@ enyo.kind({
 		var itemsCount=items.length;
 			  	this.matchItems=[];
 
+		if(itemsCount>0){
+			this.$.maUseMatch.setDisabled(false);
+		}
 		for(var i=0;i<itemsCount;i++){
 			var asin=(items[i].sku)? items[i].sku: "";
 			var isbn='';
@@ -1650,6 +1673,7 @@ enyo.kind({
 	
 	  	var itemCount=items.length;
 	  	if(itemCount>0){
+			this.$.maUseMatch.setDisabled(false);
 	  		this.$.awsSearchStatus.hide();
 	  		this.$.resultsList.show();
 		  	for(var i=0;i<itemCount;i++){
@@ -1718,6 +1742,9 @@ enyo.kind({
 		var items=j.docs;
 		var itemsCount=items.length;
 		this.matchItems=[];
+		if(itemsCount>0){
+			this.$.maUseMatch.setDisabled(false);		
+		}
 		for(var i=0;i<itemsCount;i++){
 			if(!items[i].isbn){
 				items[i].isbn=[{}];
